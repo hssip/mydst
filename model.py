@@ -16,6 +16,8 @@ SENTENCE_MAX_LENGTH = 128
 VOCAB_VEC_LENGTH = 256
 
 
+
+
 def utterance_encoder():
     slot_holder = fluid.data(name='slot_holder', shape=[None, HISTR_LENGTH, SENTENCE_MAX_LENGTH, SLOT_VEC_LENGTH])
     sentence_holder = fluid.data(name='sentence_holder',shape=[None, HISTR_LENGTH, SENTENCE_VEC_LENGTH])
