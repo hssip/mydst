@@ -8,7 +8,7 @@ def load_histr_slot():
     return []
 
 def load_all_slot():
-    return []
+    return np.array([])
 
 def sen2vec(sentence):
     return []
