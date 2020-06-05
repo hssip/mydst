@@ -2,6 +2,7 @@ import numpy as np
 import paddle as pd
 import paddle.fluid as fluid
 from myutils import *
+import tensorflow as tf
 
 # SENTENCE_VEC_LENGTH = 256
 # SLOT_VEC_LENGTH = 128
@@ -18,12 +19,16 @@ SENTENCE_LENGTH = 128
 VOCAB_EMBEDDING_LENGTH = 256
 SLOT_EMBEDDING_LENGTH = 128
 
+UTTR_TOKEN_LENGTH = HISTR_LENGTH * SENTENCE_LENGTH
+
 ENCODER_HIDDEN_SIZE = 64
 ENCODER_LAYERS_NUM = 1
 
 
 all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
+SLOT_DO_KINDS_NUM = 4
+GATE_KIND = 4
 
 
 
@@ -47,11 +52,11 @@ ALL_SLOT_NUM = len(all_slot)
 
 def utterance_encoder():
 
-    sentence_holder = fluid.data(name='sentence_holder', shape=[None, HISTR_LENGTH * SENTENCE_LENGTH, VOCAB_EMBEDDING_LENGTH])
+    sentence_holder = fluid.data(name='sentence_holder', shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
     # histr_slot_holder = fluid.data(name='histr_slot_holder', shape=[None, ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH])
 
-    init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, HISTR_LENGTH * SENTENCE_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
-    init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, HISTR_LENGTH * SENTENCE_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
+    init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
+    init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
 
     encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=sentence_holder, 
                                                                 init_h=init_h,
@@ -64,18 +69,35 @@ def utterance_encoder():
     # encoder_result = fluid.layers.concat(encode_out[:][0][:], axis=[])
     return encode_out
 
-def state_generator(encoder_result):
+def state_generator(encoder_result, slots_embedding):
 
-    gen_out, gen_last_h, gen_last_c = fluid.layers.lstm(input=encoder_result,
-                                                        )
-
-
-
+    # gen_out, gen_last_h, gen_last_c = fluid.layers.lstm(input=encoder_result,
+    #                                                     )
+    slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
+                                                    dtype='float32', 
+                                                    name='slots_to_hidden',
+                                                    default_initializer=None)
+    hidden_to_vocab = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, VOCAB_EMBEDDING_LENGTH], 
+                                                dtype='float32', 
+                                                name='hidden_to_vocab',
+                                                default_initializer=None)
+    slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
+    hiddens = fluid.layers.mul(encoder_result, hidden_to_vocab)
+    vocabs = fluid.layers.mul(slots, hiddens)
     return []
 
-def slot_gate(slot_embedding, encoder_result):
+def slot_gate(encoder_result, slots_embedding):
 
-
-
-
-
+    # slots_to_hidden = fluid.layers.fc(slots_embedding, size=HISTR_LENGTH * SENTENCE_LENGTH,act='relu')
+    slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
+                                                    dtype='float32', 
+                                                    name='slots_to_hidden',
+                                                    default_initializer=None)
+    hidden_to_gate = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, GATE_KIND], 
+                                                dtype='float32', 
+                                                name='hidden_to_gate',
+                                                default_initializer=None)
+    slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
+    hiddens = fluid.layers.mul(encoder_result ,hidden_to_gate)
+    gates = fluid.layers.mul(slots, hiddens)
+    return gates
