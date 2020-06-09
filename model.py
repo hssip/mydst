@@ -1,8 +1,10 @@
+# -*-coding:utf-8 -*-
+
 import numpy as np 
 import paddle as pd
 import paddle.fluid as fluid
 from myutils import *
-import tensorflow as tf
+# import tensorflow as tf
 
 # SENTENCE_VEC_LENGTH = 256
 # SLOT_VEC_LENGTH = 128
@@ -29,9 +31,7 @@ all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
 SLOT_DO_KINDS_NUM = 4
 GATE_KIND = 4
-
-
-
+GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
 
 # def utterance_encoder():
@@ -99,5 +99,18 @@ def slot_gate(encoder_result, slots_embedding):
                                                 default_initializer=None)
     slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
     hiddens = fluid.layers.mul(encoder_result ,hidden_to_gate)
-    gates = fluid.layers.mul(slots, hiddens)
+    gates = fluid.layers.softmax(fluid.layers.mul(slots, hiddens))
     return gates
+
+def update_slots(vocabs, gates):
+    gates = np.array(fluid.layers.argmax(gates,axis=-1))
+    vocabs = np.array(vocabs)
+    for i in range(ALL_SLOT_NUM):
+        if GATE_INDEX[gates[i]] == 'UPDATE':
+            pass
+        elif GATE_INDEX[gates[i]] == 'DONTCARE':
+            pass
+        elif GATE_INDEX[gates[i]] == 'NONE':
+            pass
+        else:
+            pass
