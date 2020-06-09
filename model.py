@@ -112,5 +112,5 @@ def update_slots(vocabs, gates):
             pass
         elif GATE_INDEX[gates[i]] == 'NONE':
             pass
-        else:
+        elif GATE_INDEX[gates[i]] == 'DELETE':
             pass
