@@ -9,10 +9,10 @@ class Slots:
     _raw_slots = []
 
     def __init__(self, slots_dict, embed_matri):
-        super().__init__()
+        # super().__init__()
         for domin in range(slots_dict):
             for slot in domin:
-                self._slots.append(embed_matri[domin].extend(embed_matri[slot])
+                self._slots.append(embed_matri[domin].extend(embed_matri[slot]))
                 self._vocab.append(None)
                 self._raw_slots.append((domin, slot))
 
