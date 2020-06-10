@@ -12,9 +12,8 @@ import difflib
 import numpy as np 
 
 
-FILE_PATH_PREFIX = 'pub_dataset/'
-
-file_name = FILE_PATH_PREFIX + 'MultiWOZ_1.0/data.json'
+FILE_PATH_PREFIX = 'pub_dataset/MultiWOZ_1.0/'
+LOAD_DIAG_NUM = 10
 
 ignore_in_goal = ['eod', 'topic', 'messageLen', 'message']
 
@@ -29,7 +28,7 @@ def is_ascii(s):
 
 def insertSpace(token, text):
     sidx = 0
-        while True:
+    while True:
         sidx = text.find(token, sidx)
         if sidx == -1:
             break
@@ -108,7 +107,7 @@ def normalize(text, clean_value=True):
     text = re.sub('\'$', '', text)
     text = re.sub('\'\s', ' ', text)
     text = re.sub('\s\'', ' ', text)
-    for fromx, tox in replacements:
+    for fromx, tox in replace_list:
         text = ' ' + text + ' '
         text = text.replace(fromx, tox)[1:-1]
 
@@ -130,4 +129,77 @@ def normalize(text, clean_value=True):
 
     return text
 
+def process_metadata(sys_metadata):
+    result = {}
+    # sys_metadata = {}
+    for domin_key, domin_value in sys_metadata.items():
+        temp = {}
+        for first_key, first_value in domin_key.items():
+            for second_key, second_value in first_value.items():
+                temp[second_key] = second_value
+        result[domin_key] = domin_value
+    
+    return result
 
+
+def process_dialog(dialog, maxlen):
+    result = {}
+    if len(dialog['log']) % 2 != 0:
+        print('odd turns')
+        return None
+
+    temp = {}
+    for a_goal in dialog['goal']:
+        if a_goal in ignore_in_goal:
+            continue
+        temp[a_goal] = dialog['goal'][a_goal]
+    result['goal'] = temp
+    
+    user_turns_list = []
+    sys_turns_list = []
+    status_list = []
+
+    log = dialog['log']
+
+    for i in range(len(log)):
+        if len(log[i]['text'].strip('\n').split()) > maxlen:
+            print('too long')
+            return None
+        
+        if i % 2 == 0:  
+            text = log[i]['text']
+            if not is_ascii(text):
+                return None
+            user_turns_list.append(text)
+        else:
+            text = log[i]['text']
+            if not is_ascii(text):
+                return None
+            else:
+                sys_turns_list.append(text)
+
+                status_list.append(process_metadata(log[i]['metadata']))
+    
+    result['user_turns'] = user_turns_list
+    result['sys_turns'] = sys_turns_list
+    result['turns_status'] = status_list
+    
+    return result
+
+
+def load_diag_data(max_length):
+    data_file_name = FILE_PATH_PREFIX + 'data.json'
+    file_read = open(data_file_name, 'r')
+    json_data = json.load(file_read)
+    dialogs_info = {}
+    for dia_index, dialog_name in enumerate(json_data):
+        dialog = json_data[dialog_name]
+        dialogs_info[dialog_name] = process_dialog(dialog, max_length)
+        if dia_index > LOAD_DIAG_NUM:
+            break
+    
+    return dialogs_info
+
+def load_domin_info(domin):
+    pass
+    return 

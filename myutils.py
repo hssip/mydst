@@ -2,6 +2,7 @@
 
 import numpy as np 
 import json, pickle
+import gensim
 
 
 def load_histr_dia():
