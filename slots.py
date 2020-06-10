@@ -3,19 +3,23 @@ import numpy as np
 
 class Slots:
 
-    _slots = []
-    _vocab = []
-
-    _raw_slots = []
-
-    def __init__(self, slots_dict, embed_matri):
+    _vocab_slots = {}
+    _embed_slots = {}
+    def __init__(self, slots_dict, embed_matri = None, is_embedding = False):
         # super().__init__()
-        for domin in range(slots_dict):
-            for slot in domin:
-                self._slots.append(embed_matri[domin].extend(embed_matri[slot]))
-                self._vocab.append(None)
-                self._raw_slots.append((domin, slot))
-
+        if is_embedding:
+            for domin in slots_dict:
+                temp = {}
+                for slot in slots_dict[domin]:
+                    try:
+                        temp[slot] = embed_matri[]
+                    except KeyError:
+                        raise 'cannot find ' + domin + ' , ' + slot + 'in embedding_matri'
+        else:
+            for domin in slots_dict:
+                for slot in slots_dict[domin]:
+                    
+            self._raw_slots.appen((domin))
     def __iter__(self):
         self.__iter_value = 0
         return self
@@ -36,5 +40,5 @@ class Slots:
         if index != -1:
             return self._vocab[index]
         else:
-            raise Exception('The pair: ' + domin + ' ' + slots + 'not exists!')
+            raise Exception('The pair: ' + domin + ' ' + slot + 'not exists!')
     

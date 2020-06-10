@@ -3,12 +3,12 @@
 import json, pickle
 import copy 
 import os, re
-import shutil
-import urllib.request
-from collections import OrderedDict
-from io import BytesIO
-from zipfile import ZipFile
-import difflib
+# import shutil
+# import urllib.request
+
+# from io import BytesIO
+# from zipfile import ZipFile
+# import difflib
 import numpy as np 
 
 
@@ -129,17 +129,18 @@ def normalize(text, clean_value=True):
 
     return text
 
-def process_metadata(sys_metadata):
-    result = {}
-    # sys_metadata = {}
-    for domin_key, domin_value in sys_metadata.items():
-        temp = {}
-        for first_key, first_value in domin_key.items():
-            for second_key, second_value in first_value.items():
-                temp[second_key] = second_value
-        result[domin_key] = domin_value
+# def process_metadata(sys_metadata):
+#     result = {}
+#     # sys_metadata = {}
+#     for domin_key, domin_value in sys_metadata.items():
+#         temp = {}
+#         for first_key, first_value in domin_value.items():
+#             for second_key, second_value in first_value.items():
+#                 if isinstance(second_value, list) or is
+#                 temp[second_key] = second_value
+#         result[domin_key] = domin_value
     
-    return result
+#     return result
 
 
 def process_dialog(dialog, maxlen):
@@ -167,7 +168,7 @@ def process_dialog(dialog, maxlen):
             return None
         
         if i % 2 == 0:  
-            text = log[i]['text']
+            text = log[i]['text'].str
             if not is_ascii(text):
                 return None
             user_turns_list.append(text)
@@ -178,7 +179,8 @@ def process_dialog(dialog, maxlen):
             else:
                 sys_turns_list.append(text)
 
-                status_list.append(process_metadata(log[i]['metadata']))
+                # status_list.append(process_metadata(log[i]['metadata']))
+                status_list.append(log[i]['metadata'])
     
     result['user_turns'] = user_turns_list
     result['sys_turns'] = sys_turns_list

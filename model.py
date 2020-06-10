@@ -4,6 +4,7 @@ import numpy as np
 import paddle as pd
 import paddle.fluid as fluid
 from myutils import *
+from collections import OrderedDict
 # import tensorflow as tf
 
 # SENTENCE_VEC_LENGTH = 256
@@ -17,9 +18,11 @@ from myutils import *
 # VOCAB_VEC_LENGTH = 256
 
 HISTR_LENGTH = 32
-SENTENCE_LENGTH = 128
-VOCAB_EMBEDDING_LENGTH = 256
-SLOT_EMBEDDING_LENGTH = 128
+SENTENCE_LENGTH = 300
+# VOCAB_EMBEDDING_LENGTH = 256
+# SLOT_EMBEDDING_LENGTH = 128
+VOCAB_EMBEDDING_LENGTH = 300
+SLOT_EMBEDDING_LENGTH = 300
 
 UTTR_TOKEN_LENGTH = HISTR_LENGTH * SENTENCE_LENGTH
 
@@ -29,9 +32,12 @@ ENCODER_LAYERS_NUM = 1
 
 all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
-SLOT_DO_KINDS_NUM = 4
+SLOT_EMBEDDING_LENGTH
 GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
+
+EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
+
 
 
 # def utterance_encoder():
@@ -71,8 +77,7 @@ def utterance_encoder():
 
 def state_generator(encoder_result, slots_embedding):
 
-    # gen_out, gen_last_h, gen_last_c = fluid.layers.lstm(input=encoder_result,
-    #                                                     )
+    # gen_out, gen_last_h, gen_last_c = fluid.layers.lstm(input=encoder_result,)
     slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
                                                     dtype='float32', 
                                                     name='slots_to_hidden',
@@ -89,6 +94,7 @@ def state_generator(encoder_result, slots_embedding):
 def slot_gate(encoder_result, slots_embedding):
 
     # slots_to_hidden = fluid.layers.fc(slots_embedding, size=HISTR_LENGTH * SENTENCE_LENGTH,act='relu')
+    # slots_embedding = fluid.data()
     slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
                                                     dtype='float32', 
                                                     name='slots_to_hidden',
@@ -102,9 +108,9 @@ def slot_gate(encoder_result, slots_embedding):
     gates = fluid.layers.softmax(fluid.layers.mul(slots, hiddens))
     return gates
 
-def update_slots(vocabs, gates):
+def update_slots(vocabs, gates, slots):
     gates = np.array(fluid.layers.argmax(gates,axis=-1))
-    vocabs = np.array(vocabs)
+    # vocabs = np.array(vocabs)
     for i in range(ALL_SLOT_NUM):
         if GATE_INDEX[gates[i]] == 'UPDATE':
             pass
@@ -114,3 +120,33 @@ def update_slots(vocabs, gates):
             pass
         elif GATE_INDEX[gates[i]] == 'DELETE':
             pass
+    
+    return slots
+
+def optimizer_program():
+    return fluid.optimizer.Adam(learning_rate=0.01)
+
+def calcu_cost(gates, gates_label, states, states_label):
+
+    return
+
+
+
+def mymodel():
+    slots_holder = fluid.data('slots_holder', shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH], dtype='float32')
+    encoder_result = utterance_encoder()
+
+def train_program(data):
+    slots = np.array()
+    utterances = np.array()
+
+
+    
+    
+
+place = fluid.CUDAPlace(0)
+exe = fluid.Executor(place)
+exe.run(fluid.default_startup_program)
+feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder'],
+                            place=place)
+
