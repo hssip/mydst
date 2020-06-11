@@ -3,9 +3,9 @@
 import json, pickle
 import copy 
 import os, re
+from collections import OrderedDict
 # import shutil
 # import urllib.request
-
 # from io import BytesIO
 # from zipfile import ZipFile
 # import difflib
@@ -22,6 +22,16 @@ replace_list = []
 for line in replace_lines:
     tok_from, tok_to = line.replace('\n', '').split('\t')
     replace_list.append((' ' + tok_from + ' ', ' ' + tok_to + ' '))
+
+slots = {
+    'taxi':['leaveAt', 'destination', 'departure', 'arrivaBy'],
+    'hotel':['name','type', 'parking', 'pricerange', 'internet', 
+                'day', 'stay', 'people', 'area', 'stars'],
+    'attraction':['name', 'type', 'area'],
+    'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
+    'restaurant' :['food', 'price', 'area', 'name', 'time', 'day', 'people']
+}
+SLOTS_MAPPING_FILE_PATH = 'pub_dataset/slots_mapping'
 
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
@@ -80,10 +90,10 @@ def normalize(text, clean_value=True):
     # weird unicode bug
     text = re.sub(u"(\u2018|\u2019)", "'", text)
 
-    if clean_value:
+    # if clean_value:
         # replace time and and price
-        text = re.sub(timepat, ' [value_time] ', text)
-        text = re.sub(pricepat, ' [value_price] ', text)
+        # text = re.sub(timepat, ' [value_time] ', text)
+        # text = re.sub(pricepat, ' [value_price] ', text)
         #text = re.sub(pricepat2, '[value_price]', text)
 
     # replace st.
@@ -129,18 +139,40 @@ def normalize(text, clean_value=True):
 
     return text
 
-# def process_metadata(sys_metadata):
-#     result = {}
-#     # sys_metadata = {}
-#     for domin_key, domin_value in sys_metadata.items():
-#         temp = {}
-#         for first_key, first_value in domin_value.items():
-#             for second_key, second_value in first_value.items():
-#                 if isinstance(second_value, list) or is
-#                 temp[second_key] = second_value
-#         result[domin_key] = domin_value
-    
-#     return result
+
+def process_metadata(sys_metadata):
+    result = OrderedDict()
+
+    #change mutiword slot to single word
+    slots_mapping = open(file=SLOTS_MAPPING_FILE_PATH, mode='r')
+    slot_map = {}
+    for line in slots_mapping.readlines():
+        arr = line.split(',')
+        if arr:
+            slot_map[arr[0]] = arr[1]
+
+    #change hierachical dict to single level dict
+    for domin_key, domin_value in sys_metadata.items():
+        if domin_key not in slots.keys():
+            continue
+        temp = OrderedDict()
+        for attr, value in domin_value['book']:
+            if attr =='booked' and value:
+                temp['name'] = value['name']
+            else:
+                temp['name'] = ''
+            if attr in slots[domin_key]:
+                if attr in slot_map.keys():
+                    attr = slot_map[attr]
+                temp[attr] = value
+        
+        for attr, value in domin_value['semi']:
+            if attr in slots[domin_key]:
+                if attr in slot_map.keys():
+                    attr = slot_map[attr]
+                temp[attr] = value
+        result[domin_key] = temp
+    return result
 
 
 def process_dialog(dialog, maxlen):
@@ -180,7 +212,7 @@ def process_dialog(dialog, maxlen):
                 sys_turns_list.append(text)
 
                 # status_list.append(process_metadata(log[i]['metadata']))
-                status_list.append(log[i]['metadata'])
+                status_list.append(process_metadata(log[i]['metadata']))
     
     result['user_turns'] = user_turns_list
     result['sys_turns'] = sys_turns_list
@@ -199,7 +231,6 @@ def load_diag_data(max_length):
         dialogs_info[dialog_name] = process_dialog(dialog, max_length)
         if dia_index > LOAD_DIAG_NUM:
             break
-    
     return dialogs_info
 
 def load_domin_info(domin):

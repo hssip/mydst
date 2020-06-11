@@ -28,7 +28,7 @@ UTTR_TOKEN_LENGTH = HISTR_LENGTH * SENTENCE_LENGTH
 
 ENCODER_HIDDEN_SIZE = 64
 ENCODER_LAYERS_NUM = 1
-ATTENTION_HEAD_NUM = 3
+ATTENTION_HEAD_NUM = 1
 
 
 all_slot = load_all_slot()
@@ -77,7 +77,7 @@ def utterance_encoder():
     # encoder_result = fluid.layers.concat(encode_out[:][0][:], axis=[])
     return encode_out
 
-def state_generator(encoder_result): #, slots_embedding):
+def state_generator(encoder_result, slots_embedding):
 
     # slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
     #                                                 dtype='float32', 
@@ -103,20 +103,19 @@ def state_generator(encoder_result): #, slots_embedding):
                                                 dtype='float32', 
                                                 name='V_1',
                                                 default_initializer=None)
-    q1 = fluid.layers.mul(encoder_result, Q_1)
+    q1 = fluid.layers.mul(slots_embedding, Q_1)
     k1 = fluid.layers.mul(encoder_result, K_1)
     v1 = fluid.layers.mul(encoder_result, V_1)
     qk = fluid.layers.mul(q1, fluid.layers.t(k1))/fluid.layers.sqrt(VOCAB_EMBEDDING_LENGTH)
     head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
 
-
-
-    return []
+    #calc
+    states = fluid.layers.fc(head1, size = VOCAB_EMBEDDING_LENGTH, act='relu')
+    # vocab = np.sum(np.array(state), axis=0)
+    return states
 
 def slot_gate(encoder_result, slots_embedding):
 
-    # slots_to_hidden = fluid.layers.fc(slots_embedding, size=HISTR_LENGTH * SENTENCE_LENGTH,act='relu')
-    # slots_embedding = fluid.data()
     slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
                                                     dtype='float32', 
                                                     name='slots_to_hidden',
@@ -130,33 +129,51 @@ def slot_gate(encoder_result, slots_embedding):
     gates = fluid.layers.softmax(fluid.layers.mul(slots, hiddens))
     return gates
 
-def update_slots(slots, vocabs, gates):
-    gates = np.array(fluid.layers.argmax(gates,axis=-1))
-    # vocabs = np.array(vocabs)
-    for i in range(ALL_SLOT_NUM):
-        if GATE_INDEX[gates[i]] == 'UPDATE':
-            pass
-        elif GATE_INDEX[gates[i]] == 'DONTCARE':
-            pass
-        elif GATE_INDEX[gates[i]] == 'NONE':
-            pass
-        elif GATE_INDEX[gates[i]] == 'DELETE':
-            pass
-    
-    return slots
+# def update_slots(slot, vocab, gate):
+#     gates = np.array(fluid.layers.argmax(gates,axis=-1))
+#     for i in range(ALL_SLOT_NUM):
+#         if GATE_INDEX[gates[i]] == 'UPDATE':
+#             pass
+#         elif GATE_INDEX[gates[i]] == 'DONTCARE':
+#             pass
+#         elif GATE_INDEX[gates[i]] == 'NONE':
+#             pass
+#         elif GATE_INDEX[gates[i]] == 'DELETE':
+#             pass
+#     return slot
 
 def optimizer_program():
     return fluid.optimizer.Adam(learning_rate=0.01)
 
 def calcu_cost(gates, gates_label, states, states_label):
+    loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
+    loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
 
-    return
+    loss = 0.0
+    for gate_label in gates_label:
+        if fluid.layers.argmax(gates_label).numpy()[0] == 1:
+            loss += loss1 + loss2
+        else:
+            loss += loss1
+    
+    # value_tensor = fluid.Tensor()
+    # value_tensor.set([1,0,0,0])
 
+    return loss
 
 
 def mymodel():
     slots_holder = fluid.data('slots_holder', shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH], dtype='float32')
+    
+    gates_holder_y = fluid.data('gates_holder_y', shape=[ALL_SLOT_NUM, GATE_KIND], dtype='int32')
+    state_holder_y = fluid.data('state_holder_y', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
+
     encoder_result = utterance_encoder()
+    states = state_generator(encoder_result, slots_holder)
+    gates = slot_gate(encoder_result, slots_holder)
+
+    return gates, states
+
 
 def train_program(data):
     slots = np.array()
