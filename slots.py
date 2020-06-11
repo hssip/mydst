@@ -12,14 +12,13 @@ class Slots:
                 temp = {}
                 for slot in slots_dict[domin]:
                     try:
-                        temp[slot] = embed_matri[]
+                        temp[slot] = embed_matri[slot]
                     except KeyError:
                         raise 'cannot find ' + domin + ' , ' + slot + 'in embedding_matri'
         else:
             for domin in slots_dict:
                 for slot in slots_dict[domin]:
-                    
-            self._raw_slots.appen((domin))
+                    self._raw_slots.appen((domin))
     def __iter__(self):
         self.__iter_value = 0
         return self

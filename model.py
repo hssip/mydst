@@ -28,6 +28,7 @@ UTTR_TOKEN_LENGTH = HISTR_LENGTH * SENTENCE_LENGTH
 
 ENCODER_HIDDEN_SIZE = 64
 ENCODER_LAYERS_NUM = 1
+ATTENTION_HEAD_NUM = 3
 
 
 all_slot = load_all_slot()
@@ -35,6 +36,7 @@ ALL_SLOT_NUM = len(all_slot)
 SLOT_EMBEDDING_LENGTH
 GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
+
 
 EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
 
@@ -75,20 +77,40 @@ def utterance_encoder():
     # encoder_result = fluid.layers.concat(encode_out[:][0][:], axis=[])
     return encode_out
 
-def state_generator(encoder_result, slots_embedding):
+def state_generator(encoder_result): #, slots_embedding):
 
-    # gen_out, gen_last_h, gen_last_c = fluid.layers.lstm(input=encoder_result,)
-    slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
-                                                    dtype='float32', 
-                                                    name='slots_to_hidden',
-                                                    default_initializer=None)
-    hidden_to_vocab = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, VOCAB_EMBEDDING_LENGTH], 
+    # slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
+    #                                                 dtype='float32', 
+    #                                                 name='slots_to_hidden',
+    #                                                 default_initializer=None)
+    # hidden_to_vocab = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, VOCAB_EMBEDDING_LENGTH], 
+    #                                             dtype='float32', 
+    #                                             name='hidden_to_vocab',
+    #                                             default_initializer=None)
+    # slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
+    # hiddens = fluid.layers.mul(encoder_result, hidden_to_vocab)
+    # vocabs = fluid.layers.mul(slots, hiddens)
+
+    Q_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
-                                                name='hidden_to_vocab',
+                                                name='Q_1',
                                                 default_initializer=None)
-    slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
-    hiddens = fluid.layers.mul(encoder_result, hidden_to_vocab)
-    vocabs = fluid.layers.mul(slots, hiddens)
+    K_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
+                                                dtype='float32', 
+                                                name='K_1',
+                                                default_initializer=None)
+    V_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
+                                                dtype='float32', 
+                                                name='V_1',
+                                                default_initializer=None)
+    q1 = fluid.layers.mul(encoder_result, Q_1)
+    k1 = fluid.layers.mul(encoder_result, K_1)
+    v1 = fluid.layers.mul(encoder_result, V_1)
+    qk = fluid.layers.mul(q1, fluid.layers.t(k1))/fluid.layers.sqrt(VOCAB_EMBEDDING_LENGTH)
+    head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
+
+
+
     return []
 
 def slot_gate(encoder_result, slots_embedding):
@@ -108,7 +130,7 @@ def slot_gate(encoder_result, slots_embedding):
     gates = fluid.layers.softmax(fluid.layers.mul(slots, hiddens))
     return gates
 
-def update_slots(vocabs, gates, slots):
+def update_slots(slots, vocabs, gates):
     gates = np.array(fluid.layers.argmax(gates,axis=-1))
     # vocabs = np.array(vocabs)
     for i in range(ALL_SLOT_NUM):
@@ -149,4 +171,6 @@ exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program)
 feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder'],
                             place=place)
+
+w = get_embedding_dict(EMBEDDIND_FILE_NAME) #cost lot of time
 

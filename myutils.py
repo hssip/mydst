@@ -68,7 +68,9 @@ def dialogs2embedding(dialogs, max_sentence_length, w, WORD_EMBEDDING_LENGTH):
         diag_embedding.append(tokens_embedding)
     return diag_embedding 
 
-def slots2embed()
+def slots2embed(slots, w):
+    slots_embedding = []
+
 
 def load_pub_domin():
     return []
