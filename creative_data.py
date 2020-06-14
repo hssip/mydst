@@ -158,7 +158,7 @@ def process_metadata(sys_metadata):
         temp = OrderedDict()
         for attr, value in domin_value['book']:
             if attr =='booked' and value:
-                temp['name'] = value['name']
+                temp['name'] = value[0]['name']
             else:
                 temp['name'] = ''
             if attr in slots[domin_key]:

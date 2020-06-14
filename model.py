@@ -3,8 +3,10 @@
 import numpy as np 
 import paddle as pd
 import paddle.fluid as fluid
-from myutils import *
 from collections import OrderedDict
+
+from creative_data import *
+from myutils import *
 # import tensorflow as tf
 
 # SENTENCE_VEC_LENGTH = 256
@@ -17,14 +19,14 @@ from collections import OrderedDict
 # SENTENCE_MAX_LENGTH = 128
 # VOCAB_VEC_LENGTH = 256
 
-HISTR_LENGTH = 32
-SENTENCE_LENGTH = 300
+HISTR_TURNS_LENGTH = 2
+SENTENCE_LENGTH = 64
 # VOCAB_EMBEDDING_LENGTH = 256
 # SLOT_EMBEDDING_LENGTH = 128
 VOCAB_EMBEDDING_LENGTH = 300
 SLOT_EMBEDDING_LENGTH = 300
 
-UTTR_TOKEN_LENGTH = HISTR_LENGTH * SENTENCE_LENGTH
+UTTR_TOKEN_LENGTH = (HISTR_TURNS_LENGTH * 2 + 1) * SENTENCE_LENGTH
 
 ENCODER_HIDDEN_SIZE = 64
 ENCODER_LAYERS_NUM = 1
@@ -129,6 +131,7 @@ def slot_gate(encoder_result, slots_embedding):
     gates = fluid.layers.softmax(fluid.layers.mul(slots, hiddens))
     return gates
 
+######### will be used in practice###################
 # def update_slots(slot, vocab, gate):
 #     gates = np.array(fluid.layers.argmax(gates,axis=-1))
 #     for i in range(ALL_SLOT_NUM):
@@ -145,28 +148,36 @@ def slot_gate(encoder_result, slots_embedding):
 def optimizer_program():
     return fluid.optimizer.Adam(learning_rate=0.01)
 
-def calcu_cost(gates, gates_label, states, states_label):
-    loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
-    loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
+# def calcu_cost(gates, gates_label, states, states_label):
+#     loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
+#     loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
 
+#     loss = 0.0
+#     for gate_label in gates_label:
+#         if fluid.layers.argmax(gates_label).numpy()[0] == 1:
+#             loss += loss1 + loss2
+#         else:
+#             loss += loss1
+
+def calcu_cost(gates, gates_label):
+    loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
+    # loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
+    loss2 = 0.0
     loss = 0.0
     for gate_label in gates_label:
         if fluid.layers.argmax(gates_label).numpy()[0] == 1:
             loss += loss1 + loss2
         else:
             loss += loss1
-    
-    # value_tensor = fluid.Tensor()
-    # value_tensor.set([1,0,0,0])
-
     return loss
+
+def calcu_acc(gates, gates_label):
+
+    return fluid.layers.accuracy(input=gates, label=gates_label)
 
 
 def mymodel():
     slots_holder = fluid.data('slots_holder', shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH], dtype='float32')
-    
-    gates_holder_y = fluid.data('gates_holder_y', shape=[ALL_SLOT_NUM, GATE_KIND], dtype='int32')
-    state_holder_y = fluid.data('state_holder_y', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
 
     encoder_result = utterance_encoder()
     states = state_generator(encoder_result, slots_holder)
@@ -179,15 +190,77 @@ def train_program(data):
     slots = np.array()
     utterances = np.array()
 
+    gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, GATE_KIND], dtype='int32')
+    state_label= fluid.data('state_label', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
 
+    gates_predict, state_predict = mymodel()
+    cost = calcu_cost(gates_predict, gates_label)
+    acc = calcu_acc(gates=gates_predict, gates_label=gates_label)
     
+    return cost, acc
     
 
 place = fluid.CUDAPlace(0)
 exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program)
-feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder'],
+main_program = fluid.default_main_program()
+feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder'
+                                        'gates_label', 'state_label'],
                             place=place)
+# feeder.feed()
+cost, acc = train_program()
+optimizer = optimizer_program()
+optimizer.minimize(cost)
 
 w = get_embedding_dict(EMBEDDIND_FILE_NAME) #cost lot of time
+
+padding_embed = []
+for i in range(SENTENCE_LENGTH):
+    padding_embed.append([0 for j in range(VOCAB_EMBEDDING_LENGTH)])
+
+dias = load_diag_data(max_length=SENTENCE_LENGTH)
+for dia in dias:
+    embed_dia = dialogs2embedding(dia, SENTENCE_LENGTH, w, WORD_EMBEDDING_LENGTH=300)
+    turns = int(len(embed_dia)/2)
+    for i in range(turns):
+        sentence_feed_data = []
+        if i < HISTR_TURNS_LENGTH:
+            for j in range(i, HISTR_TURNS_LENGTH):
+                sentence_feed_data.extend(padding_embed)
+                sentence_feed_data.extend(padding_embed)
+            for j in range(i):
+                sentence_feed_data.extend(embed_dia[2 * i])
+                sentence_feed_data.extend(embed_dia[2 * i + 1])
+            sentence_feed_data.extend(embed_dia[2 * i])
+        else:
+            for j in range(i-HISTR_TURNS_LENGTH, i):
+                sentence_feed_data.extend(embed_dia[2 * j])
+                sentence_feed_data.extend(embed_dia[2 * i + 1])
+            sentence_feed_data.extend(embed_dia[2 * i])
+
+        sentence_feeder = fluid.Tensor()
+        sentence_feeder.set(np.array(sentence_feed_data))
+
+
+
+        slot_feeder = fluid.Tensor()
+        slot_feeder.set(np.array(slots2embed(dia['turns_status'][i] ,w)))
+
+        gates_feeder = np.array(slots2gates(dia['turns_status'][i], dia['turns_status'][i]))
+        state_feeder = np.array()
+
+        feed_data = {'sentence_holder':sentence_feeder,
+                    'slots_holder':'',
+                    'gates_label':'', 
+                    'state_label':''}
+        metrics = exe.run(main_program,
+                        feed=feeder.feed([sentence_feeder,
+                            slot_feeder,
+                            gates_feeder,
+                            state_feeder]),
+                        fetch_list=[])
+    
+        print('cost is : %f, acc is: %f'%(cost, acc))
+
+
 
