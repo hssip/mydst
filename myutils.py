@@ -26,11 +26,18 @@ done_slots = {
 
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
+# gate2index = {
+#     'UPDATE':   [1,0,0,0],
+#     'DONTCARE': [0,1,0,0],
+#     'NONE':     [0,0,1,0],
+#     'DELETE':   [0,0,0,1]
+# }
+
 gate2index = {
-    'UPDATE':   [1,0,0,0],
-    'DONTCARE': [0,1,0,0],
-    'NONE':     [0,0,1,0],
-    'DELETE':   [0,0,0,1]
+    'UPDATE':   [1],
+    'DONTCARE': [2],
+    'NONE':     [3],
+    'DELETE':   [4]
 }
 
 special_slot_value={
@@ -42,7 +49,7 @@ special_slot_value={
 
 def get_embedding_dict(EMBEDDIND_FILE_NAME):
     w = models.KeyedVectors.load_word2vec_format(EMBEDDIND_FILE_NAME, binary=True)
-    w = models.KeyedVectors.load()
+    # w = models.KeyedVectors.load()
     return w
 
 def load_histr_dia():
@@ -78,6 +85,7 @@ def dialogs2embedding(dialogs, max_sentence_length, w, WORD_EMBEDDING_LENGTH):
             tokens_embedding.append([0 for i in range(WORD_EMBEDDING_LENGTH)])
         diag_embedding.append(tokens_embedding)
         tokens_embeding = []
+        
         for token in sys_tokens:
             try:
                 token_embedding = w[token]
@@ -117,6 +125,16 @@ def slots2gates(slots1, slots2):
             elif slots2[domin][slot] in special_slot_value['none']:
                 gates.append(gate2index['DELETE'])
     return gates
+
+def get_initial_slots():
+    initial_slots = {}
+    for domin, attrs in done_slots.items():
+        domin_dict = {}
+        for attr in attrs:
+            domin_dict['attr'] = ''
+        initial_slots[domin] = domin_dict
+    
+    return initial_slots
 
 def load_pub_domin():
     return []

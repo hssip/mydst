@@ -4,6 +4,7 @@ import numpy as np
 import paddle as pd
 import paddle.fluid as fluid
 from collections import OrderedDict
+import math
 
 from creative_data import *
 from myutils import *
@@ -40,7 +41,8 @@ GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
 
-EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
+# EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
+EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300-SLIM.bin'
 
 
 
@@ -60,15 +62,14 @@ EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
 # def curr_encoder():
     # curr_sentence = fluid.data(name='curr_sentence', shape=[None, SENTENCE_MAX_LENGTH, VOCAB_VEC_LENGTH])
 
-def utterance_encoder():
+def utterance_encoder(sentence):
 
-    sentence_holder = fluid.data(name='sentence_holder', shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
     # histr_slot_holder = fluid.data(name='histr_slot_holder', shape=[None, ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH])
 
     init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
     init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
 
-    encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=sentence_holder, 
+    encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=sentence, 
                                                                 init_h=init_h,
                                                                 init_c=init_c,
                                                                 max_len=VOCAB_EMBEDDING_LENGTH,
@@ -81,6 +82,7 @@ def utterance_encoder():
 
 def state_generator(encoder_result, slots_embedding):
 
+    encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
     # slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
     #                                                 dtype='float32', 
     #                                                 name='slots_to_hidden',
@@ -97,18 +99,18 @@ def state_generator(encoder_result, slots_embedding):
                                                 dtype='float32', 
                                                 name='Q_1',
                                                 default_initializer=None)
-    K_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
+    K_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
                                                 name='K_1',
                                                 default_initializer=None)
-    V_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
+    V_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
                                                 name='V_1',
                                                 default_initializer=None)
     q1 = fluid.layers.mul(slots_embedding, Q_1)
     k1 = fluid.layers.mul(encoder_result, K_1)
     v1 = fluid.layers.mul(encoder_result, V_1)
-    qk = fluid.layers.mul(q1, fluid.layers.t(k1))/fluid.layers.sqrt(VOCAB_EMBEDDING_LENGTH)
+    qk = fluid.layers.mul(q1, fluid.layers.t(k1))/math.sqrt(VOCAB_EMBEDDING_LENGTH)
     head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
 
     #calc
@@ -117,6 +119,8 @@ def state_generator(encoder_result, slots_embedding):
     return states
 
 def slot_gate(encoder_result, slots_embedding):
+
+    encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
 
     slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
                                                     dtype='float32', 
@@ -164,12 +168,12 @@ def calcu_cost(gates, gates_label):
     # loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
     loss2 = 0.0
     loss = 0.0
-    for gate_label in gates_label:
-        if fluid.layers.argmax(gates_label).numpy()[0] == 1:
-            loss += loss1 + loss2
-        else:
-            loss += loss1
-    return loss
+    # for gate_label in gates_label:
+    #     if fluid.layers.argmax(gates_label).numpy()[0] == 1:
+    #         loss += loss1 + loss2
+    #     else:
+    #         loss += loss1
+    return loss1
 
 def calcu_acc(gates, gates_label):
 
@@ -178,19 +182,19 @@ def calcu_acc(gates, gates_label):
 
 def mymodel():
     slots_holder = fluid.data('slots_holder', shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH], dtype='float32')
-
-    encoder_result = utterance_encoder()
+    sentence_holder = fluid.data(name='sentence_holder', shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
+    encoder_result = utterance_encoder(sentence_holder)
     states = state_generator(encoder_result, slots_holder)
     gates = slot_gate(encoder_result, slots_holder)
 
     return gates, states
 
 
-def train_program(data):
-    slots = np.array()
-    utterances = np.array()
+def train_program():
+    # slots = np.array()
+    # utterances = np.array()
 
-    gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, GATE_KIND], dtype='int32')
+    gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, 1], dtype='int32')
     state_label= fluid.data('state_label', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
 
     gates_predict, state_predict = mymodel()
@@ -202,15 +206,15 @@ def train_program(data):
 
 place = fluid.CUDAPlace(0)
 exe = fluid.Executor(place)
-exe.run(fluid.default_startup_program)
+exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
-feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder'
-                                        'gates_label', 'state_label'],
-                            place=place)
 # feeder.feed()
 cost, acc = train_program()
 optimizer = optimizer_program()
 optimizer.minimize(cost)
+feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder',
+                                        'gates_label', 'state_label'],
+                            place=place)
 
 w = get_embedding_dict(EMBEDDIND_FILE_NAME) #cost lot of time
 
@@ -219,9 +223,10 @@ for i in range(SENTENCE_LENGTH):
     padding_embed.append([0 for j in range(VOCAB_EMBEDDING_LENGTH)])
 
 dias = load_diag_data(max_length=SENTENCE_LENGTH)
-for dia in dias:
+for dia_name, dia in dias.items():
     embed_dia = dialogs2embedding(dia, SENTENCE_LENGTH, w, WORD_EMBEDDING_LENGTH=300)
     turns = int(len(embed_dia)/2)
+    slots1 = get_initial_slots()
     for i in range(turns):
         sentence_feed_data = []
         if i < HISTR_TURNS_LENGTH:
@@ -241,26 +246,30 @@ for dia in dias:
         sentence_feeder = fluid.Tensor()
         sentence_feeder.set(np.array(sentence_feed_data))
 
-
+        slots2 = dia['turns_status'][i]
 
         slot_feeder = fluid.Tensor()
-        slot_feeder.set(np.array(slots2embed(dia['turns_status'][i] ,w)))
+        slot_feeder.set(np.array(slots2embed(slots2 ,w)))
 
-        gates_feeder = np.array(slots2gates(dia['turns_status'][i], dia['turns_status'][i]))
+        gates_feeder = np.array(slots2gates(slots1, slots2))
+
         state_feeder = np.array()
 
-        feed_data = {'sentence_holder':sentence_feeder,
-                    'slots_holder':'',
-                    'gates_label':'', 
-                    'state_label':''}
-        metrics = exe.run(main_program,
+        # feed_data = {'sentence_holder':sentence_feeder,
+        #             'slots_holder':'',
+        #             'gates_label':'', 
+        #             'state_label':''}
+        cost, acc = exe.run(main_program,
                         feed=feeder.feed([sentence_feeder,
                             slot_feeder,
                             gates_feeder,
                             state_feeder]),
-                        fetch_list=[])
+                        fetch_list=[cost, acc],
+                        )
     
         print('cost is : %f, acc is: %f'%(cost, acc))
+
+
 
 
 

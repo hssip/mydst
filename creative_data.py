@@ -156,8 +156,8 @@ def process_metadata(sys_metadata):
         if domin_key not in slots.keys():
             continue
         temp = OrderedDict()
-        for attr, value in domin_value['book']:
-            if attr =='booked' and value:
+        for attr, value in domin_value['book'].items():
+            if attr =='booked' and value and 'name' in  value[0].keys(): #need to change
                 temp['name'] = value[0]['name']
             else:
                 temp['name'] = ''
@@ -166,7 +166,7 @@ def process_metadata(sys_metadata):
                     attr = slot_map[attr]
                 temp[attr] = value
         
-        for attr, value in domin_value['semi']:
+        for attr, value in domin_value['semi'].items():
             if attr in slots[domin_key]:
                 if attr in slot_map.keys():
                     attr = slot_map[attr]
@@ -200,7 +200,7 @@ def process_dialog(dialog, maxlen):
             return None
         
         if i % 2 == 0:  
-            text = log[i]['text'].str
+            text = log[i]['text']
             if not is_ascii(text):
                 return None
             user_turns_list.append(text)
