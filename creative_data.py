@@ -23,14 +23,24 @@ for line in replace_lines:
     tok_from, tok_to = line.replace('\n', '').split('\t')
     replace_list.append((' ' + tok_from + ' ', ' ' + tok_to + ' '))
 
-slots = {
-    'taxi':['leaveAt', 'destination', 'departure', 'arrivaBy'],
-    'hotel':['name','type', 'parking', 'pricerange', 'internet', 
-                'day', 'stay', 'people', 'area', 'stars'],
-    'attraction':['name', 'type', 'area'],
-    'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
-    'restaurant' :['food', 'price', 'area', 'name', 'time', 'day', 'people']
-}
+domin_list = ['hotel', 'restaurant', 'taxi', 'attraction', 'train']
+slots_list = [['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay', 'people', 'area', 'stars'],
+                ['food', 'pricerange', 'area', 'name', 'time', 'day', 'people'],
+                ['leaveAt', 'destination', 'departure', 'arriveBy'], 
+                ['name', 'type', 'area'],
+                ['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure']
+                ]
+
+# slots = {
+#     'taxi':['leaveAt', 'destination', 'departure', 'arrivaBy'],
+#     'hotel':['name','type', 'parking', 'pricerange', 'internet', 
+#                 'day', 'stay', 'people', 'area', 'star'],
+#     'attraction':['name', 'type', 'area'],
+#     'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
+#     'restaurant' :['food', 'price', 'area', 'name', 'time', 'day', 'people']
+# }
+# slots = OrderedDict()
+
 SLOTS_MAPPING_FILE_PATH = 'pub_dataset/slots_mapping'
 
 def is_ascii(s):
@@ -144,34 +154,56 @@ def process_metadata(sys_metadata):
     result = OrderedDict()
 
     #change mutiword slot to single word
-    slots_mapping = open(file=SLOTS_MAPPING_FILE_PATH, mode='r')
-    slot_map = {}
-    for line in slots_mapping.readlines():
-        arr = line.split(',')
-        if arr:
-            slot_map[arr[0]] = arr[1]
+    # slots_mapping = open(file=SLOTS_MAPPING_FILE_PATH, mode='r')
+    # slot_map = {}
+    # for line in slots_mapping.readlines():
+    #     arr = line.strip('\n').split(',')
+    #     if arr:
+    #         slot_map[arr[0]] = arr[1]
+    #     else:
+    #         print('teststststs')
 
-    #change hierachical dict to single level dict
-    for domin_key, domin_value in sys_metadata.items():
-        if domin_key not in slots.keys():
+    #change hierachical dict to single level orderdict
+
+    for domin_index, domin in enumerate(domin_list):
+        temp = {}
+        if domin not in sys_metadata:
+            for slot in slots_list[domin_index]:
+                temp[slot] = ''
+            result[domin] = temp
             continue
-        temp = OrderedDict()
-        for attr, value in domin_value['book'].items():
-            if attr =='booked' and value and 'name' in  value[0].keys(): #need to change
-                temp['name'] = value[0]['name']
+        for slot in slots_list[domin_index]:
+            if slot in sys_metadata[domin]['semi']:
+                temp[slot] = sys_metadata[domin]['semi'][slot]
+            elif slot in sys_metadata[domin]['book']:
+                temp[slot] = sys_metadata[domin]['book'][slot]
+            elif sys_metadata[domin]['book']['booked'] and \
+                slot in sys_metadata[domin]['book']['booked'][0]:
+                temp[slot] = sys_metadata[domin]['book']['booked'][0][slot]
             else:
-                temp['name'] = ''
-            if attr in slots[domin_key]:
-                if attr in slot_map.keys():
-                    attr = slot_map[attr]
-                temp[attr] = value
-        
-        for attr, value in domin_value['semi'].items():
-            if attr in slots[domin_key]:
-                if attr in slot_map.keys():
-                    attr = slot_map[attr]
-                temp[attr] = value
-        result[domin_key] = temp
+                temp[slot] = ''
+        result[domin] = temp
+
+    # for domin_key, domin_value in sys_metadata.items():
+    #     if domin_key not in slots.keys():
+    #         continue
+    #     temp = OrderedDict()
+    #     for attr, value in domin_value['book'].items():
+    #         if attr =='booked' and value and 'name' in  value[0].keys(): #need to change
+    #             temp['name'] = value[0]['name']
+    #         else:
+    #             temp['name'] = ''
+    #         if attr in slots[domin_key]:
+    #             if attr in slot_map.keys():
+    #                 attr = slot_map[attr]
+    #             temp[attr] = value
+    #     for attr, value in domin_value['semi'].items():
+    #         if attr in slots[domin_key]:
+    #             if attr in slot_map.keys():
+    #                 attr = slot_map[attr]
+    #             temp[attr] = value
+    #     result[domin_key] = temp
+
     return result
 
 
@@ -179,7 +211,7 @@ def process_dialog(dialog, maxlen):
     result = {}
     if len(dialog['log']) % 2 != 0:
         print('odd turns')
-        return None
+        return {}
 
     temp = {}
     for a_goal in dialog['goal']:
@@ -228,11 +260,12 @@ def load_diag_data(max_length):
     dialogs_info = {}
     for dia_index, dialog_name in enumerate(json_data):
         dialog = json_data[dialog_name]
-        dialogs_info[dialog_name] = process_dialog(dialog, max_length)
-        if dia_index > LOAD_DIAG_NUM:
+        a = process_dialog(dialog, max_length)
+        if a:
+            dialogs_info[dialog_name] = a
+        if dia_index > LOAD_DIAG_NUM * 10:
             break
     return dialogs_info
 
 def load_domin_info(domin):
-    pass
     return 

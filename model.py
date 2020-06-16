@@ -10,24 +10,13 @@ from creative_data import *
 from myutils import *
 # import tensorflow as tf
 
-# SENTENCE_VEC_LENGTH = 256
-# SLOT_VEC_LENGTH = 128
-# HISTR_HIDDEN_NUM = 64
-# HISTR_VEC_LENGTH = SLOT_VEC_LENGTH + SENTENCE_VEC_LENGTH
-# HISTR_LENGTH = 128
-# LAYERS_NUM = 1
-# # CURR_SENTENCE_MAX_LENGTH = 128
-# SENTENCE_MAX_LENGTH = 128
-# VOCAB_VEC_LENGTH = 256
 
 HISTR_TURNS_LENGTH = 2
 SENTENCE_LENGTH = 64
-# VOCAB_EMBEDDING_LENGTH = 256
-# SLOT_EMBEDDING_LENGTH = 128
 VOCAB_EMBEDDING_LENGTH = 300
 SLOT_EMBEDDING_LENGTH = 300
 
-UTTR_TOKEN_LENGTH = (HISTR_TURNS_LENGTH * 2 + 1) * SENTENCE_LENGTH
+UTTR_TOKEN_LENGTH = (HISTR_TURNS_LENGTH * (2 + 1)) * SENTENCE_LENGTH
 
 ENCODER_HIDDEN_SIZE = 64
 ENCODER_LAYERS_NUM = 1
@@ -36,40 +25,26 @@ ATTENTION_HEAD_NUM = 1
 
 all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
-SLOT_EMBEDDING_LENGTH
 GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
 
 # EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300.bin'
-EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300-SLIM.bin'
+# EMBEDDIND_FILE_NAME = 'pub_dataset/ignore_GoogleNews-vectors-negative300-SLIM.bin'
 
+def utterance_encoder(sentences, dict_size):
 
-
-# def utterance_encoder():
-#     slot_holder = fluid.data(name='slot_holder', shape=[None, HISTR_LENGTH, SENTENCE_MAX_LENGTH, SLOT_VEC_LENGTH])
-#     sentence_holder = fluid.data(name='sentence_holder',shape=[None, HISTR_LENGTH, SENTENCE_VEC_LENGTH])
-#     histr_input = fluid.layers.concat([slot_holder, sentence_holder], axis=-1)
-#     init_h = fluid.layers.fill_constant(shape=[LAYERS_NUM, HISTR_LENGTH, HISTR_HIDDEN_NUM], dtype='float32',value=0.0)
-#     init_c = fluid.layers.fill_constant(shape=[LAYERS_NUM, HISTR_LENGTH, HISTR_HIDDEN_NUM], dtype='float32',value=0.0)
-#     rnn_out, last_h, last_c = fluid.layers.lstm(histr_input, 
-#                                                 init_h=init_h,
-#                                                 init_c=init_c,
-#                                                 hidden_size=HISTR_HIDDEN_NUM,
-#                                                 num_layers=LAYERS_NUM,
-#                                                 is_bidirec=True,
-#                                                 max_len=HISTR_VEC_LENGTH)                                        
-# def curr_encoder():
-    # curr_sentence = fluid.data(name='curr_sentence', shape=[None, SENTENCE_MAX_LENGTH, VOCAB_VEC_LENGTH])
-
-def utterance_encoder(sentence):
-
-    # histr_slot_holder = fluid.data(name='histr_slot_holder', shape=[None, ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH])
+    # sentence_holder = fluid.data(name='sentence_holder', 
+    #                             shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH],
+    #                             dtype='float32')
+    emb = fluid.embedding(input=sentences,
+                            size=[dict_size, VOCAB_EMBEDDING_LENGTH],
+                            padding_idx=0,)
 
     init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
     init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
 
-    encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=sentence, 
+    encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
                                                                 init_h=init_h,
                                                                 init_c=init_c,
                                                                 max_len=VOCAB_EMBEDDING_LENGTH,
@@ -77,23 +52,11 @@ def utterance_encoder(sentence):
                                                                 num_layers=ENCODER_HIDDEN_SIZE,
                                                                 is_bidirec=True)
     
-    # encoder_result = fluid.layers.concat(encode_out[:][0][:], axis=[])
     return encode_out
 
 def state_generator(encoder_result, slots_embedding):
 
     encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
-    # slots_to_hidden = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, UTTR_TOKEN_LENGTH], 
-    #                                                 dtype='float32', 
-    #                                                 name='slots_to_hidden',
-    #                                                 default_initializer=None)
-    # hidden_to_vocab = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, VOCAB_EMBEDDING_LENGTH], 
-    #                                             dtype='float32', 
-    #                                             name='hidden_to_vocab',
-    #                                             default_initializer=None)
-    # slots = fluid.layers.mul(slots_embedding, slots_to_hidden)
-    # hiddens = fluid.layers.mul(encoder_result, hidden_to_vocab)
-    # vocabs = fluid.layers.mul(slots, hiddens)
 
     Q_1 = fluid.layers.create_parameter(shape=[VOCAB_EMBEDDING_LENGTH, int(VOCAB_EMBEDDING_LENGTH/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
@@ -119,6 +82,8 @@ def state_generator(encoder_result, slots_embedding):
     return states
 
 def slot_gate(encoder_result, slots_embedding):
+
+
 
     encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
 
@@ -152,17 +117,6 @@ def slot_gate(encoder_result, slots_embedding):
 def optimizer_program():
     return fluid.optimizer.Adam(learning_rate=0.01)
 
-# def calcu_cost(gates, gates_label, states, states_label):
-#     loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
-#     loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
-
-#     loss = 0.0
-#     for gate_label in gates_label:
-#         if fluid.layers.argmax(gates_label).numpy()[0] == 1:
-#             loss += loss1 + loss2
-#         else:
-#             loss += loss1
-
 def calcu_cost(gates, gates_label):
     loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
     # loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
@@ -180,96 +134,80 @@ def calcu_acc(gates, gates_label):
     return fluid.layers.accuracy(input=gates, label=gates_label)
 
 
-def mymodel():
-    slots_holder = fluid.data('slots_holder', shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH], dtype='float32')
-    sentence_holder = fluid.data(name='sentence_holder', shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
-    encoder_result = utterance_encoder(sentence_holder)
-    states = state_generator(encoder_result, slots_holder)
-    gates = slot_gate(encoder_result, slots_holder)
+def mymodel(dict_size):
+    sentence_index_holder = fluid.data(name='sentence_index_holder',
+                                shape=[None, UTTR_TOKEN_LENGTH],
+                                dtype='int64')
+
+    slots_index_holder = fluid.data(name='slots_index_holder',
+                                    shape=[ALL_SLOT_NUM],
+                                    dtype='int64')
+    slots_emb = fluid.embedding(input=slots_index_holder,
+                                size=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH],
+                                padding_idx=0)
+
+    encoder_result = utterance_encoder(sentence_index_holder, dict_size)
+    states = state_generator(encoder_result, slots_emb)
+    gates = slot_gate(encoder_result, slots_emb)
 
     return gates, states
 
-
-def train_program():
-    # slots = np.array()
-    # utterances = np.array()
+def train_program(dict_size):
 
     gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, 1], dtype='int32')
     state_label= fluid.data('state_label', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
 
-    gates_predict, state_predict = mymodel()
+    gates_predict, state_predict = mymodel(dict_size)
     cost = calcu_cost(gates_predict, gates_label)
     acc = calcu_acc(gates=gates_predict, gates_label=gates_label)
     
     return cost, acc
-    
+
+word_dict = pd.dataset.imdb.word_dict()
+
+cost, acc = train_program(len(word_dict))
+optimizer = optimizer_program()
+optimizer.minimize(cost)
 
 place = fluid.CUDAPlace(0)
 exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
-# feeder.feed()
-cost, acc = train_program()
-optimizer = optimizer_program()
-optimizer.minimize(cost)
-feeder = fluid.DataFeeder(feed_list = ['sentence_holder', 'slots_holder',
-                                        'gates_label', 'state_label'],
+feed_order = ['sentence_index_holder', 'slots_index_holder',
+                'gates_label', 'state_label']
+feed_var_list_loop = [main_program.global_block().var(var_name) for var_name in feed_order]
+feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
                             place=place)
-
-w = get_embedding_dict(EMBEDDIND_FILE_NAME) #cost lot of time
-
-padding_embed = []
-for i in range(SENTENCE_LENGTH):
-    padding_embed.append([0 for j in range(VOCAB_EMBEDDING_LENGTH)])
 
 dias = load_diag_data(max_length=SENTENCE_LENGTH)
 for dia_name, dia in dias.items():
-    embed_dia = dialogs2embedding(dia, SENTENCE_LENGTH, w, WORD_EMBEDDING_LENGTH=300)
-    turns = int(len(embed_dia)/2)
+    dia_tokens = dialogs2tokens(dialogs=dia,
+                                max_sentence_length=SENTENCE_LENGTH)
+    turns = int(len(dia_tokens)/2)
     slots1 = get_initial_slots()
     for i in range(turns):
-        sentence_feed_data = []
-        if i < HISTR_TURNS_LENGTH:
-            for j in range(i, HISTR_TURNS_LENGTH):
-                sentence_feed_data.extend(padding_embed)
-                sentence_feed_data.extend(padding_embed)
-            for j in range(i):
-                sentence_feed_data.extend(embed_dia[2 * i])
-                sentence_feed_data.extend(embed_dia[2 * i + 1])
-            sentence_feed_data.extend(embed_dia[2 * i])
-        else:
-            for j in range(i-HISTR_TURNS_LENGTH, i):
-                sentence_feed_data.extend(embed_dia[2 * j])
-                sentence_feed_data.extend(embed_dia[2 * i + 1])
-            sentence_feed_data.extend(embed_dia[2 * i])
-
-        sentence_feeder = fluid.Tensor()
-        sentence_feeder.set(np.array(sentence_feed_data))
+        turn_tokens = get_turn_tokens(turn_number=i,
+                                        hist_turn_length=HISTR_TURNS_LENGTH,
+                                        max_sentence_length=SENTENCE_LENGTH,
+                                        dia_token_list=dia_tokens,
+                                        if_complete_turns=True)
+        sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
         slots2 = dia['turns_status'][i]
+        slots_feed_data = np.array(slots_attr2index(slots2 ,word_dict))
 
-        slot_feeder = fluid.Tensor()
-        slot_feeder.set(np.array(slots2embed(slots2 ,w)))
+        gates_feed_data = np.array(slots2gates(slots1, slots2))
 
-        gates_feeder = np.array(slots2gates(slots1, slots2))
+        state_feed_data = np.zeros(shape=(ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH),
+                                dtype='float32')
+        # print(feeder)
 
-        state_feeder = np.array()
-
-        # feed_data = {'sentence_holder':sentence_feeder,
-        #             'slots_holder':'',
-        #             'gates_label':'', 
-        #             'state_label':''}
-        cost, acc = exe.run(main_program,
-                        feed=feeder.feed([sentence_feeder,
-                            slot_feeder,
-                            gates_feeder,
-                            state_feeder]),
+        cost1, acc1 = exe.run(main_program,
+                        feed=feeder.feed([sentences_feed_data,
+                            slots_feed_data,
+                            gates_feed_data]),
+                            # state_feed_data]),
                         fetch_list=[cost, acc],
                         )
     
-        print('cost is : %f, acc is: %f'%(cost, acc))
-
-
-
-
-
+        print('cost is : %f, acc is: %f'%(cost1, acc1))
