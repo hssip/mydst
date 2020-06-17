@@ -12,9 +12,9 @@ from myutils import *
 
 
 HISTR_TURNS_LENGTH = 2
-SENTENCE_LENGTH = 64
-VOCAB_EMBEDDING_LENGTH = 300
-SLOT_EMBEDDING_LENGTH = 300
+SENTENCE_LENGTH = 32
+VOCAB_EMBEDDING_LENGTH = 128
+SLOT_EMBEDDING_LENGTH = 128
 
 UTTR_TOKEN_LENGTH = (HISTR_TURNS_LENGTH * (2 + 1)) * SENTENCE_LENGTH
 
@@ -39,10 +39,13 @@ def utterance_encoder(sentences, dict_size):
     #                             dtype='float32')
     emb = fluid.embedding(input=sentences,
                             size=[dict_size, VOCAB_EMBEDDING_LENGTH],
-                            padding_idx=0,)
+                            padding_idx=0)
 
     init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
     init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
+    
+    emb = fluid.layers.reshape(x = emb,
+                                shape=[1, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
 
     encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
                                                                 init_h=init_h,
@@ -169,7 +172,8 @@ cost, acc = train_program(len(word_dict))
 optimizer = optimizer_program()
 optimizer.minimize(cost)
 
-place = fluid.CUDAPlace(0)
+# place = fluid.CUDAPlace(1)
+place = fluid.CPUPlace()
 exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
@@ -180,6 +184,8 @@ feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
                             place=place)
 
 dias = load_diag_data(max_length=SENTENCE_LENGTH)
+slots_feed_data = slots_attr2index(word_dict)
+
 for dia_name, dia in dias.items():
     dia_tokens = dialogs2tokens(dialogs=dia,
                                 max_sentence_length=SENTENCE_LENGTH)
@@ -194,19 +200,28 @@ for dia_name, dia in dias.items():
         sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
         slots2 = dia['turns_status'][i]
-        slots_feed_data = np.array(slots_attr2index(slots2 ,word_dict))
-
-        gates_feed_data = np.array(slots2gates(slots1, slots2))
+        gates_feed_data = slots2gates(slots1, slots2)
 
         state_feed_data = np.zeros(shape=(ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH),
                                 dtype='float32')
         # print(feeder)
+        print(sentences_feed_data.shape)
+        print(slots_feed_data.shape)
+        print(gates_feed_data.shape)
+        print(state_feed_data.shape)
+        myfeed = {
+            'sentence_index_holder':sentences_feed_data,
+            'slots_index_holder':slots_feed_data,
+            'gates_label':gates_feed_data,
+            'state_label':state_feed_data
+        }
 
         cost1, acc1 = exe.run(main_program,
-                        feed=feeder.feed([sentences_feed_data,
-                            slots_feed_data,
-                            gates_feed_data]),
-                            # state_feed_data]),
+                        # feed=feeder.feed([sentences_feed_data,
+                        #     slots_feed_data,
+                        #     gates_feed_data,
+                        #     state_feed_data]),
+                        feed = myfeed,
                         fetch_list=[cost, acc],
                         )
     

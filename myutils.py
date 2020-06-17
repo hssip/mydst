@@ -7,22 +7,22 @@ from io import BytesIO
 from zipfile import ZipFile
 from collections import OrderedDict 
 
-# slots = {
-#     'taxi':['leaveAt', 'destination', 'departure', 'arrivaBy'],
+# done_slots = {
+#     'taxi':['leaveAt', 'destination', 'departure', 'arriveBy'],
 #     'hotel':['name','type', 'parking', 'pricerange', 'internet', 
 #                 'day', 'stay', 'people', 'area', 'stars'],
 #     'attraction':['name', 'type', 'area'],
 #     'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
-#     'restaurant' :['food', 'price', 'area', 'name', 'time', 'day', 'people']
+#     'restaurant' :['food', 'pricerange', 'area', 'name', 'time', 'day', 'people']
 # }
-done_slots = {
-    'taxi':['leaveAt', 'destination', 'departure', 'arriveBy'],
-    'hotel':['name','type', 'parking', 'pricerange', 'internet', 
-                'day', 'stay', 'people', 'area', 'stars'],
-    'attraction':['name', 'type', 'area'],
-    'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
-    'restaurant' :['food', 'pricerange', 'area', 'name', 'time', 'day', 'people']
-}
+domin_list = ['hotel', 'restaurant', 'taxi', 'attraction', 'train']
+slots_list = [['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay', 'people', 'area', 'stars'],
+                ['food', 'pricerange', 'area', 'name', 'time', 'day', 'people'],
+                ['leaveAt', 'destination', 'departure', 'arriveBy'], 
+                ['name', 'type', 'area'],
+                ['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure']
+                ]
+
 
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
@@ -95,7 +95,7 @@ def get_turn_tokens(turn_number,
         for i in range(hist_turn_length - turn_number):
             for j in range(max_sentence_length):
                 all_tokens.append(0)
-        for i in range(turn_number):
+        for i in range(turn_number + 1):
             all_tokens.extend(dia_token_list[i])
             all_tokens.extend(dia_token_list[i + 1])
     else:
@@ -119,18 +119,18 @@ def uttr_token2index(tokens, word_dict):
         else:
             tokindx.append(0)
     
-    return tokindx
+    return np.array(tokindx).astype('int64')
 
-def slots_attr2index(slots, word_dict):
+def slots_attr2index(word_dict):
     slotsindex = []
-    for domin, attrs in slots.items():
-        for attr in attrs:
-            if attr in word_dict:
-                slotsindex.append(word_dict[attr])
+    for d_index, domin in enumerate(domin_list):
+        for slot in slots_list[d_index]:
+            if slot in word_dict:
+                slotsindex.append(word_dict[slot])
             else:
                 slotsindex.append(0)
     
-    return slotsindex
+    return np.array(slotsindex).astype('int64')
 
 
 
@@ -145,8 +145,8 @@ def slots_attr2index(slots, word_dict):
 
 def slots2gates(slots1, slots2):
     gates = []
-    print(slots1)
-    print(slots2)
+    # print(slots1)
+    # print(slots2)
     for domin, domin_value in slots1.items():
         for slot, slot_value in domin_value.items():
             #none
@@ -162,21 +162,25 @@ def slots2gates(slots1, slots2):
             #delete
             elif slots2[domin][slot] in special_slot_value['none']:
                 gates.append(gate2index['DELETE'])
-    return gates
+            else:
+                gates.append(gate2index['NONE'])
+
+    return np.array(gates).astype('int32')
 
 def get_initial_slots():
-    initial_slots = {}
-    for domin, attrs in done_slots.items():
-        domin_dict = {}
-        for attr in attrs:
-            domin_dict[attr] = ''
-        initial_slots[domin] = domin_dict
-    
+    initial_slots = OrderedDict()
+    for d_index, domin in enumerate(domin_list):
+        temp = OrderedDict()
+        for slot in slots_list[d_index]:
+            temp[slot] = ''
+        initial_slots[domin] = temp
+
     return initial_slots
 
 def load_all_slot():
     result = []
-    for domin, attrs in done_slots.items():
-        result.extend(attrs)
+    for d_index, domin in enumerate(domin_list):
+        for slot in slots_list[d_index]:
+            result.append(slot)
     
     return result

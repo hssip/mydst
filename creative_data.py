@@ -166,7 +166,7 @@ def process_metadata(sys_metadata):
     #change hierachical dict to single level orderdict
 
     for domin_index, domin in enumerate(domin_list):
-        temp = {}
+        temp = OrderedDict()
         if domin not in sys_metadata:
             for slot in slots_list[domin_index]:
                 temp[slot] = ''
