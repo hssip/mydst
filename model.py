@@ -183,6 +183,11 @@ feed_order = ['sentence_index_holder', 'slots_index_holder',
 # feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
                             # place=place)
 
+tokens_file = open('tokens.txt', mode='w', encoding='utf-8')
+token_str = ''
+index_file = open('index.txt', mode='w', encoding='utf-8')
+index_str = ''
+
 dias = load_diag_data(max_length=SENTENCE_LENGTH)
 slots_feed_data = slots_attr2index(word_dict)
 dia_num = 0
@@ -202,8 +207,19 @@ for dia_name, dia in dias.items():
                                         dia_token_list=dia_tokens,
                                         if_complete_turns=True)
         # print(turn_tokens)
+        for token in turn_tokens:
+            token_str += token + ' '
+        token_str += '\n'
+        token_str += '*****************************************************\n'
+
         sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+
         # print(sentences_feed_data)
+        for index in sentences_feed_data:
+            index_str += str(index) + ' '
+        index_str += '\n'
+        index_str += '*************************************************************\n'
+
         slots2 = dia['turns_status'][i]
         gates_feed_data = slots2gates(slots1, slots2)
         slots1 = copy.deepcopy(slots2)
@@ -230,6 +246,11 @@ for dia_name, dia in dias.items():
                         feed = myfeed,
                         fetch_list=[cost, acc, fetch_gates_label],
                         )
-        # if i == turns - 1:
-        print('cost is : %f, acc is: %f'%(cost1, acc1))
+        if i == turns - 1:
+            print('cost is : %f, acc is: %f'%(cost1, acc1))
             # print(a)
+
+tokens_file.write(token_str)
+index_file.write(index_str)
+tokens_file.close()
+index_file.close()
