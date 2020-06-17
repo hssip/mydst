@@ -121,7 +121,7 @@ def slot_gate(encoder_result, slots_embedding):
 #     return slot
 
 def optimizer_program():
-    return fluid.optimizer.Adam(learning_rate=0.01)
+    return fluid.optimizer.Adagrad(learning_rate=0.01)
 
 def calcu_cost(gates, gates_label):
     loss1 = fluid.layers.mean(fluid.layers.cross_entropy(gates, gates_label))
@@ -190,19 +190,23 @@ dias = load_diag_data(max_length=SENTENCE_LENGTH)
 slots_feed_data = slots_attr2index(word_dict)
 dia_num = 0
 for dia_name, dia in dias.items():
+    # print(dia)
     dia_num += 1
+    # dia = process_dialog(dia, SENTENCE_LENGTH)
     dia_tokens = dialogs2tokens(dialogs=dia,
                                 max_sentence_length=SENTENCE_LENGTH)
     turns = int(len(dia_tokens)/2)
     slots1 = get_initial_slots()
+    # print(dia_tokens)
     for i in range(turns):
         turn_tokens = get_turn_tokens(turn_number=i,
                                         hist_turn_length=HISTR_TURNS_LENGTH,
                                         max_sentence_length=SENTENCE_LENGTH,
                                         dia_token_list=dia_tokens,
                                         if_complete_turns=True)
+        # print(turn_tokens)
         sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
-
+        # print(sentences_feed_data)
         slots2 = dia['turns_status'][i]
         gates_feed_data = slots2gates(slots1, slots2)
         slots1 = copy.deepcopy(slots2)
@@ -231,4 +235,4 @@ for dia_name, dia in dias.items():
                         )
         if i == turns - 1:
             print('cost is : %f, acc is: %f'%(cost1, acc1))
-            print(a)
+            # print(a)

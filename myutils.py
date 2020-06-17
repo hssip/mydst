@@ -51,8 +51,8 @@ def dialogs2tokens(dialogs, max_sentence_length):
     sys_diag_list = dialogs['sys_turns']
     diag_tokens = []
     for user_diag, sys_diag in zip(user_diag_list, sys_diag_list):
-        user_tokens = user_diag.strip('\n').split()
-        sys_tokens = sys_diag.strip('\n').split()
+        user_tokens = user_diag.strip('\n').split(' ')
+        sys_tokens = sys_diag.strip('\n').split(' ')
         i=0
         turn_tokens = []
         for token in user_tokens:
@@ -94,7 +94,7 @@ def get_turn_tokens(turn_number,
     if turn_number < hist_turn_length:
         for i in range(hist_turn_length - turn_number):
             for j in range(2 * max_sentence_length):
-                all_tokens.append(0)
+                all_tokens.append('None')
         for i in range(turn_number):
             all_tokens.extend(dia_token_list[2 * i])
             all_tokens.extend(dia_token_list[2 * i + 1])
@@ -113,8 +113,9 @@ def get_turn_tokens(turn_number,
 def uttr_token2index(tokens, word_dict):
     tokindx = []
     for token in tokens:
-        if token in word_dict:
-            tokindx.append(word_dict[token])
+        a = bytes(token, encoding='utf8')
+        if  a in word_dict:
+            tokindx.append(word_dict[a])
         else:
             tokindx.append(0)
     
@@ -122,12 +123,16 @@ def uttr_token2index(tokens, word_dict):
 
 def slots_attr2index(word_dict):
     slotsindex = []
+    i = 0
     for d_index, domin in enumerate(domin_list):
         for slot in slots_list[d_index]:
-            if slot in word_dict:
-                slotsindex.append(word_dict[slot])
-            else:
-                slotsindex.append(0)
+            # a = bytes(slot, encoding='utf8')
+            # if a in word_dict:
+            #     slotsindex.append(word_dict[a])
+            # else:
+            #     slotsindex.append(0)
+            slotsindex.append(i)
+            i+=1
     
     return np.array(slotsindex).astype('int64')
 

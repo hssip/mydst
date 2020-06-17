@@ -213,12 +213,12 @@ def process_dialog(dialog, maxlen):
         print('odd turns')
         return {}
 
-    temp = {}
-    for a_goal in dialog['goal']:
-        if a_goal in ignore_in_goal:
-            continue
-        temp[a_goal] = dialog['goal'][a_goal]
-    result['goal'] = temp
+    # temp = {}
+    # for a_goal in dialog['goal']:
+    #     if a_goal in ignore_in_goal:
+    #         continue
+    #     temp[a_goal] = dialog['goal'][a_goal]
+    # result['goal'] = temp
     
     user_turns_list = []
     sys_turns_list = []
@@ -242,8 +242,6 @@ def process_dialog(dialog, maxlen):
                 return None
             else:
                 sys_turns_list.append(text)
-
-                # status_list.append(process_metadata(log[i]['metadata']))
                 status_list.append(process_metadata(log[i]['metadata']))
     
     result['user_turns'] = user_turns_list
