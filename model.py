@@ -47,13 +47,16 @@ def utterance_encoder(sentences, dict_size):
     emb = fluid.layers.reshape(x = emb,
                                 shape=[1, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
 
-    encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
-                                                                init_h=init_h,
-                                                                init_c=init_c,
-                                                                max_len=VOCAB_EMBEDDING_LENGTH,
-                                                                hidden_size=ENCODER_HIDDEN_SIZE,
-                                                                num_layers=ENCODER_HIDDEN_SIZE,
-                                                                is_bidirec=True)
+    # encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
+    #                                                             init_h=init_h,
+    #                                                             init_c=init_c,
+    #                                                             max_len=VOCAB_EMBEDDING_LENGTH,
+    #                                                             hidden_size=ENCODER_HIDDEN_SIZE,
+    #                                                             num_layers=ENCODER_HIDDEN_SIZE,
+    #                                                             is_bidirec=False)
+    cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
+    encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
+                                                inputs=emb)
     
     return encode_out
 
@@ -121,7 +124,7 @@ def optimizer_program():
     return fluid.optimizer.Adam(learning_rate=0.01)
 
 def calcu_cost(gates, gates_label):
-    loss1 = fluid.layers.reduce_mean(fluid.layers.cross_entropy(gates, gates_label))
+    loss1 = fluid.layers.mean(fluid.layers.cross_entropy(gates, gates_label))
     # loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
     loss2 = 0.0
     loss = 0.0
@@ -157,7 +160,7 @@ def mymodel(dict_size):
 
 def train_program(dict_size):
 
-    gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, 1], dtype='int32')
+    gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM, 1], dtype='int64')
     state_label= fluid.data('state_label', shape=[ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH], dtype='float32')
 
     gates_predict, state_predict = mymodel(dict_size)
@@ -172,7 +175,7 @@ cost, acc = train_program(len(word_dict))
 optimizer = optimizer_program()
 optimizer.minimize(cost)
 
-# place = fluid.CUDAPlace(1)
+# place = fluid.CUDAPlace(0)
 place = fluid.CPUPlace()
 exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program())

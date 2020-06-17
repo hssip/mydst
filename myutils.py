@@ -34,10 +34,10 @@ GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 # }
 
 gate2index = {
-    'UPDATE':   [1],
-    'DONTCARE': [2],
-    'NONE':     [3],
-    'DELETE':   [4]
+    'UPDATE':   [0],
+    'DONTCARE': [1],
+    'NONE':     [2],
+    'DELETE':   [3]
 }
 
 special_slot_value={
@@ -93,18 +93,17 @@ def get_turn_tokens(turn_number,
     
     if turn_number < hist_turn_length:
         for i in range(hist_turn_length - turn_number):
-            for j in range(max_sentence_length):
+            for j in range(2 * max_sentence_length):
                 all_tokens.append(0)
-        for i in range(turn_number + 1):
-            all_tokens.extend(dia_token_list[i])
-            all_tokens.extend(dia_token_list[i + 1])
+        for i in range(turn_number):
+            all_tokens.extend(dia_token_list[2 * i])
+            all_tokens.extend(dia_token_list[2 * i + 1])
     else:
         for i in range(turn_number - hist_turn_length, turn_number):
-            all_tokens.extend(dia_token_list[i])
-            all_tokens.extend(dia_token_list[i + 1])
-    
-    all_tokens.extend(dia_token_list[turn_number])
-    all_tokens.extend(dia_token_list[turn_number + 1])
+            all_tokens.extend(dia_token_list[2 * i])
+            all_tokens.extend(dia_token_list[2 * i + 1])
+    all_tokens.extend(dia_token_list[2 * turn_number])
+    all_tokens.extend(dia_token_list[2 * turn_number + 1])
 
     return all_tokens
 
@@ -165,7 +164,7 @@ def slots2gates(slots1, slots2):
             else:
                 gates.append(gate2index['NONE'])
 
-    return np.array(gates).astype('int32')
+    return np.array(gates).astype('int64')
 
 def get_initial_slots():
     initial_slots = OrderedDict()
