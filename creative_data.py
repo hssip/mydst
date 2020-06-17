@@ -13,7 +13,7 @@ import numpy as np
 
 
 FILE_PATH_PREFIX = 'pub_dataset/MultiWOZ_1.0/'
-LOAD_DIAG_NUM = 10
+LOAD_DIAG_NUM = 100
 
 ignore_in_goal = ['eod', 'topic', 'messageLen', 'message']
 

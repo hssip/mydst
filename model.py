@@ -4,7 +4,7 @@ import numpy as np
 import paddle as pd
 import paddle.fluid as fluid
 from collections import OrderedDict
-import math
+import math, copy
 
 from creative_data import *
 from myutils import *
@@ -167,7 +167,7 @@ def train_program(dict_size):
     cost = calcu_cost(gates_predict, gates_label)
     acc = calcu_acc(gates=gates_predict, gates_label=gates_label)
     
-    return cost, acc
+    return cost, acc#, gates_predict
 
 word_dict = pd.dataset.imdb.word_dict()
 
@@ -182,14 +182,15 @@ exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
 feed_order = ['sentence_index_holder', 'slots_index_holder',
                 'gates_label', 'state_label']
-feed_var_list_loop = [main_program.global_block().var(var_name) for var_name in feed_order]
-feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
-                            place=place)
+# feed_var_list_loop = [main_program.global_block().var(var_name) for var_name in feed_order]
+# feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
+                            # place=place)
 
 dias = load_diag_data(max_length=SENTENCE_LENGTH)
 slots_feed_data = slots_attr2index(word_dict)
-
+dia_num = 0
 for dia_name, dia in dias.items():
+    dia_num += 1
     dia_tokens = dialogs2tokens(dialogs=dia,
                                 max_sentence_length=SENTENCE_LENGTH)
     turns = int(len(dia_tokens)/2)
@@ -204,14 +205,15 @@ for dia_name, dia in dias.items():
 
         slots2 = dia['turns_status'][i]
         gates_feed_data = slots2gates(slots1, slots2)
+        slots1 = copy.deepcopy(slots2)
 
         state_feed_data = np.zeros(shape=(ALL_SLOT_NUM, VOCAB_EMBEDDING_LENGTH),
                                 dtype='float32')
         # print(feeder)
-        print(sentences_feed_data.shape)
-        print(slots_feed_data.shape)
-        print(gates_feed_data.shape)
-        print(state_feed_data.shape)
+        # print(sentences_feed_data.shape)
+        # print(slots_feed_data.shape)
+        # print(gates_feed_data.shape)
+        # print(state_feed_data.shape)
         myfeed = {
             'sentence_index_holder':sentences_feed_data,
             'slots_index_holder':slots_feed_data,
@@ -227,5 +229,5 @@ for dia_name, dia in dias.items():
                         feed = myfeed,
                         fetch_list=[cost, acc],
                         )
-    
-        print('cost is : %f, acc is: %f'%(cost1, acc1))
+        if i == turns - 1:
+            print('cost is : %f, acc is: %f'%(cost1, acc1))
