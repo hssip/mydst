@@ -235,14 +235,15 @@ def process_dialog(dialog, maxlen):
             text = log[i]['text']
             if not is_ascii(text):
                 return None
+            text = normalize(text)
             user_turns_list.append(text)
         else:
             text = log[i]['text']
             if not is_ascii(text):
                 return None
-            else:
-                sys_turns_list.append(text)
-                status_list.append(process_metadata(log[i]['metadata']))
+            text = normalize(text)
+            sys_turns_list.append(text)
+            status_list.append(process_metadata(log[i]['metadata']))
     
     result['user_turns'] = user_turns_list
     result['sys_turns'] = sys_turns_list

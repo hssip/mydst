@@ -56,8 +56,8 @@ def dialogs2tokens(dialogs, max_sentence_length):
         i=0
         turn_tokens = []
         for token in user_tokens:
-            i+=1
             turn_tokens.append(token)
+            i+=1
             if i > max_sentence_length:
                 break
         for j in range(i, max_sentence_length):

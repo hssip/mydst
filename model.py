@@ -34,9 +34,6 @@ GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 
 def utterance_encoder(sentences, dict_size):
 
-    # sentence_holder = fluid.data(name='sentence_holder', 
-    #                             shape=[None, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH],
-    #                             dtype='float32')
     emb = fluid.embedding(input=sentences,
                             size=[dict_size, VOCAB_EMBEDDING_LENGTH],
                             padding_idx=0)
@@ -233,6 +230,6 @@ for dia_name, dia in dias.items():
                         feed = myfeed,
                         fetch_list=[cost, acc, fetch_gates_label],
                         )
-        if i == turns - 1:
-            print('cost is : %f, acc is: %f'%(cost1, acc1))
+        # if i == turns - 1:
+        print('cost is : %f, acc is: %f'%(cost1, acc1))
             # print(a)
