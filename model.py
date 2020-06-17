@@ -167,11 +167,11 @@ def train_program(dict_size):
     cost = calcu_cost(gates_predict, gates_label)
     acc = calcu_acc(gates=gates_predict, gates_label=gates_label)
     
-    return cost, acc#, gates_predict
+    return cost, acc, gates_predict
 
 word_dict = pd.dataset.imdb.word_dict()
 
-cost, acc = train_program(len(word_dict))
+cost, acc, fetch_gates_label = train_program(len(word_dict))
 optimizer = optimizer_program()
 optimizer.minimize(cost)
 
@@ -221,13 +221,14 @@ for dia_name, dia in dias.items():
             'state_label':state_feed_data
         }
 
-        cost1, acc1 = exe.run(main_program,
+        cost1, acc1, a = exe.run(main_program,
                         # feed=feeder.feed([sentences_feed_data,
                         #     slots_feed_data,
                         #     gates_feed_data,
                         #     state_feed_data]),
                         feed = myfeed,
-                        fetch_list=[cost, acc],
+                        fetch_list=[cost, acc, fetch_gates_label],
                         )
         if i == turns - 1:
             print('cost is : %f, acc is: %f'%(cost1, acc1))
+            print(a)
