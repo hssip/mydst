@@ -58,9 +58,9 @@ def dialogs2tokens(dialogs, max_sentence_length):
         for token in user_tokens:
             turn_tokens.append(token)
             i+=1
-            if i > max_sentence_length:
+            if i >= max_sentence_length:
                 break
-        for j in range(i + 1, max_sentence_length):
+        for j in range(i, max_sentence_length):
             turn_tokens.append('None')
         diag_tokens.append(turn_tokens)
 
@@ -69,9 +69,9 @@ def dialogs2tokens(dialogs, max_sentence_length):
         for token in sys_tokens:
             turn_tokens.append(token)
             i+=1
-            if i > max_sentence_length:
+            if i >= max_sentence_length:
                 break
-        for j in range(i + 1, max_sentence_length):
+        for j in range(i, max_sentence_length):
             turn_tokens.append('None')
         diag_tokens.append(turn_tokens)
 
