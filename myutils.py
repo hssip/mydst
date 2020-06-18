@@ -140,7 +140,7 @@ def uttr_token2index(tokens, word_dict):
     
     return np.array(tokindx).astype('int64')
 
-def slots_attr2index(word_dict):
+def slots_attr2index():
     slotsindex = []
     i = 0
     for d_index, domin in enumerate(domin_list):
@@ -206,7 +206,7 @@ def load_all_slot():
     result = []
     for d_index, domin in enumerate(domin_list):
         for slot in slots_list[d_index]:
-            result.append(slot)
+            result.append(domin + '-' +slot)
     
     return result
 

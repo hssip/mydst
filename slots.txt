@@ -1,8 +1,0 @@
-domin_list = ['hotel', 'restaurant', 'taxi', 'attraction', 'train']
-slots_list = [
-['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay', 'people', 'area', 'stars'],
-['food', 'pricerange', 'area', 'name', 'time', 'day', 'people'],
-['leaveAt', 'destination', 'departure', 'arriveBy'], 
-['name', 'type', 'area'],
-['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure']
-]

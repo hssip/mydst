@@ -180,16 +180,14 @@ main_program = fluid.default_main_program()
 # feeder = fluid.DataFeeder(feed_list = feed_var_list_loop,
                             # place=place)
 
-# tokens_file = open('tokens.txt', mode='w', encoding='utf-8')
-# token_str = ''
-# index_file = open('index.txt', mode='w', encoding='utf-8')
-# index_str = ''
+tokens_file = open('tokens.txt', mode='w+', encoding='utf-8')
+index_file = open('index.txt', mode='w+', encoding='utf-8')
 
 dias = load_diag_data()
-slots_feed_data = slots_attr2index(word_dict)
+slots_feed_data = slots_attr2index()
 dia_num = 0
 for dia_name, dia in dias.items():
-    # print(dia)
+    print(dia_name)
     dia_num += 1
     # dia = process_dialog(dia, SENTENCE_LENGTH)
     dia_tokens = dialogs2tokens(dialogs=dia)
@@ -202,36 +200,79 @@ for dia_name, dia in dias.items():
                                         dia_token_list=dia_tokens,
                                         uttr_token_length=UTTR_TOKEN_LENGTH,
                                         if_complete_turns=True)
-        print(turn_tokens)
-        # for token in turn_tokens:
-        #     token_str += token + ' '
-        # token_str += '\n'
-        # token_str += '*****************************************************\n'
+        token_str = ''
+        index_str = ''
+        # print(turn_tokens)
+        token_str += 'tokens:['
+        for token in turn_tokens:
+            token_str += token + ', '
+        token_str += '] '
 
         sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
         # print(sentences_feed_data)
-        # for index in sentences_feed_data:
-        #     index_str += str(index) + ' '
-        # index_str += '\n'
-        # index_str += '*************************************************************\n'
+        index_str += 'tokens:['
+        for index in sentences_feed_data:
+            index_str += str(index) + ', '
+        index_str += '] \n'
+
+        #print slots
+        token_str += 'slot:['
+        for slot in all_slot:
+            token_str += slot + ', '
+        token_str += '] \n'
+
+        #print slot index
+        index_str += 'slot:['
+        for slot in slots_feed_data:
+            index_str += str(slot) + ', '
+        index_str += '] \n'
 
         slots2 = dia['turns_status'][i]
         gates_feed_data = slots2gates(slots1, slots2)
         slots1 = copy.deepcopy(slots2)
 
+        #print gates
+        token_str += 'gate:['
+        for gate in gates_feed_data:
+            token_str += GATE_INDEX[gate[0]] + ', '
+        token_str += '] \n'
+
+        #print gata index
+        index_str += 'gate:['
+        for gate in gates_feed_data:
+            index_str += str(gate[0]) + ', '
+        index_str += '] \n'
+
         state_feed_data = slot2state(gates = gates_feed_data,
                                     slots2=slots2,
                                     value_list=values_list)
-        print(sentences_feed_data)
-        print(slots_feed_data)
-        print(gates_feed_data)
+        # print(sentences_feed_data)
+        # print(slots_feed_data)
+        # print(gates_feed_data)
 
-        print(state_feed_data)
-        get_value = []
+        # print(state_feed_data)
+        #print state
+
+        # get_value = []
+        token_str += 'state:['
         for index in state_feed_data:
-            get_value.append(values_list[index[0]])
-        print(get_value)
+            if index[0] == 0:
+                token_str += '[NONE], '
+            else:
+                token_str += values_list[index[0]] + ', '
+        token_str += '] \n'
+        token_str += '*********************************\n'
+
+        #print state index
+        index_str += 'state:['
+        for index in state_feed_data:
+            index_str += str(index) + ', '
+        index_str += '] \n'
+        index_str += '*********************************\n'
+        tokens_file.write(token_str)
+        index_file.write(index_str)
+
         myfeed = {
             'sentences_index_holder':sentences_feed_data,
             'slots_index_holder':slots_feed_data,
@@ -247,11 +288,9 @@ for dia_name, dia in dias.items():
         # print(b1)
         # if i == turns - 1:
         print('cost is : %f, acc is: %f'%(cost1, acc1))
-        time.sleep(0.5)
+        # time.sleep(0.5)
             # print(sentences_feed_data.dtype)
             # print(a1)
 
-# tokens_file.write(token_str)
-# index_file.write(index_str)
-# tokens_file.close()
-# index_file.close()
+tokens_file.close()
+index_file.close()
