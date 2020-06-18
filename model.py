@@ -286,8 +286,8 @@ for dia_name, dia in dias.items():
                         )
         # print(a1)
         # print(b1)
-        # if i == turns - 1:
-        print('cost is : %f, acc is: %f'%(cost1, acc1))
+        if i == turns - 1:
+            print('cost is : %f, acc is: %f'%(cost1, acc1))
         # time.sleep(0.5)
             # print(sentences_feed_data.dtype)
             # print(a1)
