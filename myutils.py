@@ -34,10 +34,10 @@ GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 # }
 
 gate2index = {
-    'UPDATE':   [0],
-    'DONTCARE': [1],
-    'NONE':     [2],
-    'DELETE':   [3]
+    'UPDATE':   0,
+    'DONTCARE': 1,
+    'NONE':     2,
+    'DELETE':   3
 }
 
 special_slot_value={
@@ -213,9 +213,11 @@ def load_all_slot():
 def slot2state(gates, slots2, value_list):
     state_list = []
     value_num = len(value_list)
+    
     for i, gate in enumerate(gates):
-        if gate[0] != 0:
-            state_list.append([0])
+        # state = [0 for i in range(value_num + 1)]
+        if gate != gate2index['UPDATE'] and gate != gate2index['DONTCARE']:
+            state_list.append(0)
             continue
         else:
             flag = False
@@ -224,10 +226,11 @@ def slot2state(gates, slots2, value_list):
                 for attr in slots2[domin]:
                     if j == i:
                         try:
-                            state_list.append([value_list.index(slots2[domin][attr])])
+                            # state[value_list.index(slots2[domin][attr])] = 1
+                            state_list.append(j)
                         except ValueError:
-                            print('EXCEPT: domin: %s attr: %s value: %s '%(domin, attr, slots2[domin][attr]))
-                            state_list.append([0])
+                            # print('EXCEPT: domin: %s attr: %s value: %s '%(domin, attr, slots2[domin][attr]))
+                            state_list.append(0)
                         flag = True
                         break
                     j += 1

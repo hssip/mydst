@@ -210,7 +210,7 @@ def process_metadata(sys_metadata):
 def process_dialog(dialog):
     result = {}
     if len(dialog['log']) % 2 != 0:
-        print('odd turns')
+        # print('odd turns')
         return {}
 
     # temp = {}
@@ -254,16 +254,36 @@ def process_dialog(dialog):
 def load_diag_data():
     data_file_name = FILE_PATH_PREFIX + 'data.json'
     file_read = open(data_file_name, 'r')
+
+    testlistfile_name = FILE_PATH_PREFIX + 'testListFile.json'
+    testlistfile = open(testlistfile_name, mode='r')
+
     json_data = json.load(file_read)
-    dialogs_info = {}
+    
+    #process testlistfile
+    test_name_list = []
+    lines = testlistfile.readlines()
+    for line in lines:
+        line = line.strip('\n')
+        test_name_list.append(line)
+
+    train_dialogs_info = {}
+    test_dialogs_info = {}
     for dia_index, dialog_name in enumerate(json_data):
         dialog = json_data[dialog_name]
         a = process_dialog(dialog)
         if a:
-            dialogs_info[dialog_name] = a
+            if dialog_name in test_name_list:
+                test_dialogs_info[dialog_name] = a
+                # print('test')
+            else:
+                train_dialogs_info[dialog_name] = a
         if dia_index > LOAD_DIAG_NUM * 10:
             break
-    return dialogs_info
+    print(len(train_dialogs_info))
+    print(len(test_dialogs_info))
+    print('load data ok!')
+    return train_dialogs_info, test_dialogs_info
 
 def load_slot_value_dict():
     slot_value_dict = {}
