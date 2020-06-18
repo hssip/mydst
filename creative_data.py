@@ -207,7 +207,7 @@ def process_metadata(sys_metadata):
     return result
 
 
-def process_dialog(dialog, maxlen):
+def process_dialog(dialog):
     result = {}
     if len(dialog['log']) % 2 != 0:
         print('odd turns')
@@ -227,10 +227,9 @@ def process_dialog(dialog, maxlen):
     log = dialog['log']
 
     for i in range(len(log)):
-        if len(log[i]['text'].strip('\n').split()) > maxlen:
-            print('too long')
-            return None
-        
+        # if len(log[i]['text'].strip('\n').split()) > maxlen:
+        #     print('too long')
+        #     return None
         if i % 2 == 0:  
             text = log[i]['text']
             if not is_ascii(text):
@@ -252,19 +251,44 @@ def process_dialog(dialog, maxlen):
     return result
 
 
-def load_diag_data(max_length):
+def load_diag_data():
     data_file_name = FILE_PATH_PREFIX + 'data.json'
     file_read = open(data_file_name, 'r')
     json_data = json.load(file_read)
     dialogs_info = {}
     for dia_index, dialog_name in enumerate(json_data):
         dialog = json_data[dialog_name]
-        a = process_dialog(dialog, max_length)
+        a = process_dialog(dialog)
         if a:
             dialogs_info[dialog_name] = a
         if dia_index > LOAD_DIAG_NUM * 10:
             break
     return dialogs_info
 
-def load_domin_info(domin):
-    return 
+def load_slot_value_dict():
+    slot_value_dict = {}
+    with open('pub_dataset/MultiWOZ_1.0/ontology.json', 'r') as json_file:
+        data = json.load(json_file)
+        for index, domin_slot in enumerate(data):
+            for value in data[domin_slot]:
+                if value not in slot_value_dict:
+                    slot_value_dict[attr] = index
+                else:
+                    continue
+
+    return slot_value_dict
+
+def load_slot_value_list():
+    slot_value_list = set()
+    slot_value_list.add('')
+    with open('pub_dataset/MultiWOZ_1.0/ontology.json', 'r') as json_file:
+        data = json.load(json_file)
+        for index, domin_slot in enumerate(data):
+            for value in data[domin_slot]:
+                slot_value_list.add(value)
+    
+    slot_value_list = list(slot_value_list)
+    a = slot_value_list.index('')
+    slot_value_list[0], slot_value_list[a] = slot_value_list[a], slot_value_list[0]
+
+    return list(slot_value_list)

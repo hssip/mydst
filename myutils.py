@@ -41,49 +41,49 @@ gate2index = {
 }
 
 special_slot_value={
-    'dontcare':['any', 'does not care'],
+    'dontcare':['any', 'does not care', 'dont care'],
     'none':['not men', 'not mentioned', 'fun', 'art', 'not', 
-            'not mendtioned']
+            'not mendtioned', '']
 }
 
-def dialogs2tokens(dialogs, max_sentence_length):
+def dialogs2tokens(dialogs):
     user_diag_list = dialogs['user_turns']
     sys_diag_list = dialogs['sys_turns']
     diag_tokens = []
     for user_diag, sys_diag in zip(user_diag_list, sys_diag_list):
         user_tokens = user_diag.strip('\n').split(' ')
         sys_tokens = sys_diag.strip('\n').split(' ')
-        i=0
+        # i=0
         turn_tokens = []
         for token in user_tokens:
             turn_tokens.append(token)
-            i+=1
-            if i >= max_sentence_length:
-                break
-        for j in range(i, max_sentence_length):
-            turn_tokens.append('None')
+            # i+=1
+            # if i >= max_sentence_length:
+                # break
+        # for j in range(i, max_sentence_length):
+            # turn_tokens.append('None')
         diag_tokens.append(turn_tokens)
 
         turn_tokens = []
-        i=0
+        # i=0
         for token in sys_tokens:
             turn_tokens.append(token)
-            i+=1
-            if i >= max_sentence_length:
-                break
-        for j in range(i, max_sentence_length):
-            turn_tokens.append('None')
+            # i+=1
+            # if i >= max_sentence_length:
+                # break
+        # for j in range(i, max_sentence_length):
+            # turn_tokens.append('None')
         diag_tokens.append(turn_tokens)
 
     return diag_tokens 
 
 def get_turn_tokens(turn_number,
-                hist_turn_length, 
-                max_sentence_length,  
+                hist_turn_length,
                 dia_token_list,
+                uttr_token_length,
                 if_complete_turns = True):
 
-    all_tokens = []
+    all_tokens = ['[START]']
 
     #assert legal
     if turn_number < 0:
@@ -91,24 +91,43 @@ def get_turn_tokens(turn_number,
     elif len(dia_token_list) % 2 != 0:
         raise RuntimeError('dia_token_list length wrong')
     
+    # if turn_number < hist_turn_length:
+    #     for i in range(hist_turn_length - turn_number):
+    #         for j in range(2 * max_sentence_length):
+    #             all_tokens.append('None')
+    #     for i in range(turn_number):
+    #         all_tokens.extend(dia_token_list[2 * i])
+    #         all_tokens.extend(dia_token_list[2 * i + 1])
+    # else:
+    #     for i in range(turn_number - hist_turn_length, turn_number):
+    #         all_tokens.extend(dia_token_list[2 * i])
+    #         all_tokens.extend(dia_token_list[2 * i + 1])
     if turn_number < hist_turn_length:
-        for i in range(hist_turn_length - turn_number):
-            for j in range(2 * max_sentence_length):
-                all_tokens.append('None')
         for i in range(turn_number):
             all_tokens.extend(dia_token_list[2 * i])
             all_tokens.extend(dia_token_list[2 * i + 1])
+            all_tokens.append('[STEP]')
     else:
         for i in range(turn_number - hist_turn_length, turn_number):
             all_tokens.extend(dia_token_list[2 * i])
             all_tokens.extend(dia_token_list[2 * i + 1])
+            all_tokens.append('[STEP]')
+
     all_tokens.extend(dia_token_list[2 * turn_number])
-    all_tokens.extend(dia_token_list[2 * turn_number + 1])
+    # all_tokens.extend(dia_token_list[2 * turn_number + 1])
 
-    return all_tokens
+    all_tokens.append('[END]')
+    leng = len(all_tokens)
 
+    for i in range(leng, uttr_token_length):
+        all_tokens.append('[NONE]')
 
+    leng = len(all_tokens)
+    new_all_tokens = []
+    for i in range(leng - uttr_token_length, leng):
+        new_all_tokens.append(all_tokens[i])
 
+    return new_all_tokens
 
 def uttr_token2index(tokens, word_dict):
     tokindx = []
@@ -164,7 +183,9 @@ def slots2gates(slots1, slots2):
             elif slots2[domin][slot] in special_slot_value['dontcare']:
                 gates.append(gate2index['DONTCARE'])
             #delete
-            elif slots2[domin][slot] in special_slot_value['none']:
+            elif slots2[domin][slot] in special_slot_value['none'] and \
+                slots1[domin][slot] not in special_slot_value['dontcare'] and \
+                slots1[domin][slot] not in special_slot_value['none']:
                 gates.append(gate2index['DELETE'])
             else:
                 gates.append(gate2index['NONE'])
@@ -188,3 +209,29 @@ def load_all_slot():
             result.append(slot)
     
     return result
+
+def slot2state(gates, slots2, value_list):
+    state_list = []
+    value_num = len(value_list)
+    for i, gate in enumerate(gates):
+        if gate[0] != 0:
+            state_list.append([0])
+            continue
+        else:
+            flag = False
+            j=0
+            for domin in slots2:
+                for attr in slots2[domin]:
+                    if j == i:
+                        try:
+                            state_list.append([value_list.index(slots2[domin][attr])])
+                        except ValueError:
+                            print('EXCEPT: domin: %s attr: %s value: %s '%(domin, attr, slots2[domin][attr]))
+                            state_list.append([0])
+                        flag = True
+                        break
+                    j += 1
+                if flag:
+                    break    
+    
+    return np.array(state_list).astype('int64')
