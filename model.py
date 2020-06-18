@@ -111,7 +111,10 @@ def optimizer_program():
 def calcu_cost(gates, gates_label, state, state_label):
     loss1 = fluid.layers.mean(fluid.layers.cross_entropy(gates, gates_label))
     # loss2 = fluid.layers.mean(fluid.layers.cross_entropy(state, state_label))
-    loss2 = fluid.layers.mean(fluid.layers.cross_entropy(state, state_label))
+    # temp_state = np.zeros(shape=[state_label.shape[0], ALL_SLOT_NUM])
+    # for state in state_label:
+    #     temp_state[state[0]] = 1
+    # loss2 = fluid.layers.mean(fluid.layers.mul(state, state_label))
     # loss2 = fluid.layers.reduce_mean(fluid.layers.square(states - states_label))
     # loss2 = 0.0
     # loss = 0.0
@@ -199,7 +202,7 @@ for dia_name, dia in dias.items():
                                         dia_token_list=dia_tokens,
                                         uttr_token_length=UTTR_TOKEN_LENGTH,
                                         if_complete_turns=True)
-        # print(turn_tokens)
+        print(turn_tokens)
         # for token in turn_tokens:
         #     token_str += token + ' '
         # token_str += '\n'
@@ -220,15 +223,15 @@ for dia_name, dia in dias.items():
         state_feed_data = slot2state(gates = gates_feed_data,
                                     slots2=slots2,
                                     value_list=values_list)
-        # print(sentences_feed_data)
-        # print(slots_feed_data)
-        # print(gates_feed_data)
+        print(sentences_feed_data)
+        print(slots_feed_data)
+        print(gates_feed_data)
 
-        # print(state_feed_data)
-        # get_value = []
-        # for index in state_feed_data:
-        #     get_value.append(values_list[index[0]])
-        # print(get_value)
+        print(state_feed_data)
+        get_value = []
+        for index in state_feed_data:
+            get_value.append(values_list[index[0]])
+        print(get_value)
         myfeed = {
             'sentences_index_holder':sentences_feed_data,
             'slots_index_holder':slots_feed_data,
@@ -244,7 +247,7 @@ for dia_name, dia in dias.items():
         # print(b1)
         # if i == turns - 1:
         print('cost is : %f, acc is: %f'%(cost1, acc1))
-        # time.sleep(0.5)
+        time.sleep(0.5)
             # print(sentences_feed_data.dtype)
             # print(a1)
 
