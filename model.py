@@ -206,7 +206,7 @@ for dia_name, dia in dias.items():
         token_str += 'tokens:['
         for token in turn_tokens:
             token_str += token + ', '
-        token_str += '] '
+        token_str += '] \n'
 
         sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
