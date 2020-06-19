@@ -10,7 +10,6 @@ from creative_data import *
 from myutils import *
 
 PASS_NUM = 5
-SNG = True
 
 
 HISTR_TURNS_LENGTH = 2
@@ -290,5 +289,10 @@ for epoch in range(PASS_NUM):
         # print(dia_name)
     print('epoch: %d, avg_cost: %f, avg_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns))
 
-    test_data = get_feed_data(test_dias)
+    # test_data = get_feed_data(test_dias, )
+    test_data = get_feed_data(test_dias,
+                            hist_turn_length=HISTR_TURNS_LENGTH,
+                            uttr_token_length= UTTR_TOKEN_LENGTH,
+                            word_dict=word_dict,
+                            values_list=values_list)
     train_test(main_program, test_data)
