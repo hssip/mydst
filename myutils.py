@@ -217,7 +217,7 @@ def slot2state(gates, slots2, value_list):
                     if j == i:
                         try:
                             # state[value_list.index(slots2[domin][attr])] = 1
-                            state_list.append(j)
+                            state_list.append(value_list.index(slots2[domin][attr]))
                         except ValueError:
                             # print('EXCEPT: domin: %s attr: %s value: %s '%(domin, attr, slots2[domin][attr]))
                             state_list.append(0)
