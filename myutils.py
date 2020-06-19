@@ -229,8 +229,19 @@ def slot2state(gates, slots2, value_list):
     
     return np.array(state_list).astype('int64')
 
-def get_feed_data(in_dias, hist_turn_length, uttr_token_length, word_dict, values_list):
+def get_feed_data(in_dias, 
+                    hist_turn_length, 
+                    uttr_token_length, 
+                    word_dict, 
+                    values_list, 
+                    all_slot,
+                    slots_feed_data, 
+                    kind='train'):
     dias_data = {}
+
+    tokens_file = open(kind + '_tokens.txt', mode='w+', encoding='utf-8')
+    index_file = open(kind + '_index.txt', mode='w+', encoding='utf-8')
+
     for dia_name, dia in in_dias.items():
         dia_tokens = dialogs2tokens(dialogs=dia)
         turns = int(len(dia_tokens)/2)
@@ -245,10 +256,13 @@ def get_feed_data(in_dias, hist_turn_length, uttr_token_length, word_dict, value
                                             dia_token_list=dia_tokens,
                                             uttr_token_length=uttr_token_length,
                                             if_complete_turns=True)
-            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+
             slots2 = dia['turns_status'][i]
             gates_feed_data = slots2gates(slots1, slots2)
             slots1 = copy.deepcopy(slots2)
+
+            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+
             state_feed_data = slot2state(gates = gates_feed_data,
                             slots2=slots2,
                             value_list=values_list)
@@ -257,19 +271,86 @@ def get_feed_data(in_dias, hist_turn_length, uttr_token_length, word_dict, value
             dia_gate_data.append(gates_feed_data)
             dia_state_data.append(state_feed_data)
 
+            #save_data
+            #print sentence
+            token_str = ''
+            index_str = ''
+            # print(turn_tokens)
+            token_str += 'tokens:['
+            for token in turn_tokens:
+                token_str += token + ', '
+            token_str += '] \n'
+
+            # print(sentences_feed_data)
+            index_str += 'tokens:['
+            for index in sentences_feed_data:
+                index_str += str(index) + ', '
+            index_str += '] \n'
+
+            # print slots
+            token_str += 'slot:['
+            for slot in all_slot:
+                token_str += slot + ', '
+            token_str += '] \n'
+
+            # print slot index
+            index_str += 'slot:['
+            for slot in slots_feed_data:
+                index_str += str(slot) + ', '
+            index_str += '] \n'
+
+            #print gates
+            token_str += 'gate:['
+            for gate in gates_feed_data:
+                token_str += GATE_INDEX[gate] + ', '
+            token_str += '] \n'
+
+            # print gata index
+            index_str += 'gate:['
+            for gate in gates_feed_data:
+                index_str += str(gate) + ', '
+            index_str += '] \n'
+
+            token_str += 'state:['
+            for index in state_feed_data:
+                if index == 0:
+                    token_str += '[NONE], '
+                else:
+                    token_str += values_list[index] + ', '
+            token_str += '] \n'
+            token_str += '*********************************\n'
+
+            #print state index
+            index_str += 'state:['
+            for index in state_feed_data:
+                index_str += str(index) + ', '
+            index_str += '] \n'
+            index_str += '*********************************\n'
+            tokens_file.write(token_str)
+            index_file.write(index_str)
+
+        
         dias_data[dia_name] = {'dia_sentence_data':dia_sentence_data,
-                                'dia_gate_data': dia_gate_data,
-                                'dia_state_data': dia_state_data}
+                        'dia_gate_data': dia_gate_data,
+                        'dia_state_data': dia_state_data}
+
+    tokens_file.close()
+    index_file.close()
+
 
     return dias_data
 
-def save_feed_data(dias_data, 
-                    slots_feed_data,
-                    kind='train'):
-    for dia_name, dia_data in dias_data.items():
-        dia_sentence_data = dia_data['dia_sentence_data']
-        dia_gate_data = dia_data['dia_gate_data']
-        dia_state_data = dia_data['dia_state_data']
-        pass
-    
+# def save_feed_data(dias_data, 
+                    # slots_feed_data,
+                    # kind='train'):
+
+
+
+    # for dia_name, dia_data in dias_data.items():
+    #     dia_sentence_data = dia_data['dia_sentence_data']
+    #     dia_gate_data = dia_data['dia_gate_data']
+    #     dia_state_data = dia_data['dia_state_data']
+    #     turns = 
     return
+
+# def save_token_data()

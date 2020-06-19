@@ -249,7 +249,22 @@ train_dias_data = get_feed_data(train_dias,
                             hist_turn_length=HISTR_TURNS_LENGTH,
                             uttr_token_length= UTTR_TOKEN_LENGTH,
                             word_dict=word_dict,
-                            values_list=values_list)
+                            values_list=values_list,
+                            all_slot=all_slot,
+                            slots_feed_data=slots_feed_data,
+                            kind='train')
+
+test_dias_data = get_feed_data(test_dias,
+                        hist_turn_length=HISTR_TURNS_LENGTH,
+                        uttr_token_length= UTTR_TOKEN_LENGTH,
+                        word_dict=word_dict,
+                        values_list=values_list,
+                        all_slot=all_slot,
+                        slots_feed_data=slots_feed_data,
+                        kind='test')
+
+print('load data and save data ok, begin to train')
+
 #train
 for epoch in range(PASS_NUM):
 
@@ -290,9 +305,4 @@ for epoch in range(PASS_NUM):
     print('epoch: %d, avg_cost: %f, avg_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns))
 
     # test_data = get_feed_data(test_dias, )
-    test_data = get_feed_data(test_dias,
-                            hist_turn_length=HISTR_TURNS_LENGTH,
-                            uttr_token_length= UTTR_TOKEN_LENGTH,
-                            word_dict=word_dict,
-                            values_list=values_list)
-    train_test(main_program, test_data)
+    train_test(main_program, test_dias_data)
