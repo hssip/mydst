@@ -6,6 +6,7 @@ from gensim import models
 from io import BytesIO
 from zipfile import ZipFile
 from collections import OrderedDict 
+import copy
 
 # done_slots = {
 #     'taxi':['leaveAt', 'destination', 'departure', 'arriveBy'],
@@ -155,18 +156,7 @@ def slots_attr2index():
     
     return np.array(slotsindex).astype('int64')
 
-
-
-# def slots2embed(slots, w):
-#     slots_embedding = []
-#     for domin, value in slots.items():
-#         try:
-#             slots_embedding.append(w[domin] + w[value])
-#         except KeyError:
-#             raise 'domin-slot pairs:' + domin + '-'+ value + 'not find in embed_matric'
-#     return np.array(slots_embedding)
-
-def slots2gates(slots1, slots2):
+def slots2gates(slots1, slots2): 
     gates = []
     # print(slots1)
     # print(slots2)
@@ -238,3 +228,48 @@ def slot2state(gates, slots2, value_list):
                     break    
     
     return np.array(state_list).astype('int64')
+
+def get_feed_data(in_dias, hist_turn_length, uttr_token_length, word_dict, values_list):
+    dias_data = {}
+    for dia_name, dia in in_dias.items():
+        dia_tokens = dialogs2tokens(dialogs=dia)
+        turns = int(len(dia_tokens)/2)
+        slots1 = get_initial_slots()
+
+        dia_sentence_data = []
+        dia_gate_data = []
+        dia_state_data = []
+        for i in range(turns):
+            turn_tokens = get_turn_tokens(turn_number=i,
+                                            hist_turn_length=hist_turn_length,
+                                            dia_token_list=dia_tokens,
+                                            uttr_token_length=uttr_token_length,
+                                            if_complete_turns=True)
+            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+            slots2 = dia['turns_status'][i]
+            gates_feed_data = slots2gates(slots1, slots2)
+            slots1 = copy.deepcopy(slots2)
+            state_feed_data = slot2state(gates = gates_feed_data,
+                            slots2=slots2,
+                            value_list=values_list)
+            ###############################################
+            dia_sentence_data.append(sentences_feed_data)
+            dia_gate_data.append(gates_feed_data)
+            dia_state_data.append(state_feed_data)
+
+        dias_data[dia_name] = {'dia_sentence_data':dia_sentence_data,
+                                'dia_gate_data': dia_gate_data,
+                                'dia_state_data': dia_state_data}
+
+    return dias_data
+
+def save_feed_data(dias_data, 
+                    slots_feed_data,
+                    kind='train'):
+    for dia_name, dia_data in dias_data.items():
+        dia_sentence_data = dia_data['dia_sentence_data']
+        dia_gate_data = dia_data['dia_gate_data']
+        dia_state_data = dia_data['dia_state_data']
+        pass
+    
+    return

@@ -13,7 +13,7 @@ import numpy as np
 
 
 FILE_PATH_PREFIX = 'pub_dataset/MultiWOZ_1.0/'
-LOAD_DIAG_NUM = 20
+LOAD_DIAG_NUM = 40
 
 ignore_in_goal = ['eod', 'topic', 'messageLen', 'message']
 
@@ -39,7 +39,6 @@ slots_list = [['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay'
 #     'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
 #     'restaurant' :['food', 'price', 'area', 'name', 'time', 'day', 'people']
 # }
-# slots = OrderedDict()
 
 SLOTS_MAPPING_FILE_PATH = 'pub_dataset/slots_mapping'
 
@@ -149,7 +148,6 @@ def normalize(text, clean_value=True):
 
     return text
 
-
 def process_metadata(sys_metadata):
     result = OrderedDict()
 
@@ -206,7 +204,6 @@ def process_metadata(sys_metadata):
 
     return result
 
-
 def process_dialog(dialog):
     result = {}
     if len(dialog['log']) % 2 != 0:
@@ -250,8 +247,7 @@ def process_dialog(dialog):
     
     return result
 
-
-def load_diag_data():
+def load_diag_data(train_samples_num, test_saples_num, SNG=False):
     data_file_name = FILE_PATH_PREFIX + 'data.json'
     file_read = open(data_file_name, 'r')
 
@@ -270,6 +266,8 @@ def load_diag_data():
     train_dialogs_info = {}
     test_dialogs_info = {}
     for dia_index, dialog_name in enumerate(json_data):
+        if SNG and'SNG' not in  dialog_name:
+            continue
         dialog = json_data[dialog_name]
         a = process_dialog(dialog)
         if a:
@@ -278,7 +276,7 @@ def load_diag_data():
                 # print('test')
             else:
                 train_dialogs_info[dialog_name] = a
-        if dia_index > LOAD_DIAG_NUM * 10:
+        if len(train_dialogs_info) > train_samples_num and len(test_dialogs_info) > test_saples_num:
             break
     print(len(train_dialogs_info))
     print(len(test_dialogs_info))

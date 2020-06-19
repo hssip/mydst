@@ -4,13 +4,13 @@ import numpy as np
 import paddle as pd
 import paddle.fluid as fluid
 from collections import OrderedDict
-import math, copy
+import math
 
 from creative_data import *
 from myutils import *
-import time
 
 PASS_NUM = 5
+SNG = True
 
 
 HISTR_TURNS_LENGTH = 2
@@ -140,12 +140,6 @@ def get_single_turn_cost(gates, gates_label, state, state_label):
     loss1 = fluid.layers.mean(fluid.layers.cross_entropy(gates, gates_label))
     # loss2 = fluid.layers.reduce_mean(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(fluid.layers.log(-state), state_label), dim = 1))
     loss2 = fluid.layers.mean(fluid.layers.cross_entropy(state, state_label))
-    # for gate_label in gates_label:
-    #     if fluid.layers.argmax(gates_label).numpy()[0] == 1:
-    #         loss += loss1 + loss2
-    #     else:
-    #         loss += loss1
-    # return loss1
     return loss1 + loss2
 
 # def get_single_turn_acc(gates, gates_label):
@@ -160,13 +154,7 @@ def get_ok_slot_num(gates, gates_label):
             fluid.layers.equal(fluid.layers.argmax(gates, axis=1), gates_label), 
             dtype='int64'))
         
-
-    
     return ok_slot_num
-
-# def is_turn_ok(gates, gates_label):
-#     ok = 0
-#     for gate in gates:
 
 
 
@@ -203,43 +191,7 @@ def single_turn_train_program(dict_size):
     
     return gates_predict, single_turn_cost, ok_slot_num
 
-# def dia_train_program(word_dict,)
-
 word_dict = pd.dataset.imdb.word_dict()
-
-def get_feed_data(in_dias):
-    dias_data = {}
-    for dia_name, dia in in_dias.items():
-        dia_tokens = dialogs2tokens(dialogs=dia)
-        turns = int(len(dia_tokens)/2)
-        slots1 = get_initial_slots()
-
-        dia_sentence_data = []
-        dia_gate_data = []
-        dia_state_data = []
-        for i in range(turns):
-            turn_tokens = get_turn_tokens(turn_number=i,
-                                            hist_turn_length=HISTR_TURNS_LENGTH,
-                                            dia_token_list=dia_tokens,
-                                            uttr_token_length=UTTR_TOKEN_LENGTH,
-                                            if_complete_turns=True)
-            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
-            slots2 = dia['turns_status'][i]
-            gates_feed_data = slots2gates(slots1, slots2)
-            slots1 = copy.deepcopy(slots2)
-            state_feed_data = slot2state(gates = gates_feed_data,
-                            slots2=slots2,
-                            value_list=values_list)
-            ###############################################
-            dia_sentence_data.append(sentences_feed_data)
-            dia_gate_data.append(gates_feed_data)
-            dia_state_data.append(state_feed_data)
-
-        dias_data[dia_name] = {'dia_sentence_data':dia_sentence_data,
-                                'dia_gate_data': dia_gate_data,
-                                'dia_state_data': dia_state_data}
-
-    return dias_data
 
 gates_predict, single_turn_cost, ok_slot_num = single_turn_train_program(len(word_dict))
 optimizer = optimizer_program()
@@ -251,10 +203,12 @@ exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
 
-tokens_file = open('tokens.txt', mode='w+', encoding='utf-8')
-index_file = open('index.txt', mode='w+', encoding='utf-8')
+# tokens_file = open('tokens.txt', mode='w+', encoding='utf-8')
+# index_file = open('index.txt', mode='w+', encoding='utf-8')
 
-train_dias, test_dias = load_diag_data()
+train_dias, test_dias = load_diag_data(train_samples_num=300, 
+                                        test_saples_num=20,
+                                        SNG=True)
 slots_feed_data = slots_attr2index()
 
 def train_test(train_test_program, test_data):
@@ -292,16 +246,18 @@ def train_test(train_test_program, test_data):
     print('test acc: %f'%(dia_acc/all_turns))
     return dia_acc/all_turns
 
+train_dias_data = get_feed_data(train_dias,
+                            hist_turn_length=HISTR_TURNS_LENGTH,
+                            uttr_token_length= UTTR_TOKEN_LENGTH,
+                            word_dict=word_dict,
+                            values_list=values_list)
 #train
 for epoch in range(PASS_NUM):
-
-    dias_data = get_feed_data(train_dias)
 
     all_turns = 0
     dia_acc = 0.0
     dia_cost = 0.0
-    for dia_name, dia_data in dias_data.items():
-        
+    for dia_name, dia_data in train_dias_data.items():
 
         dia_sentence_data = dia_data['dia_sentence_data']
         dia_gate_data = dia_data['dia_gate_data']
@@ -319,17 +275,20 @@ for epoch in range(PASS_NUM):
                 'state_label':state_feed_data
             }
 
-            cost1, ok_slot_num1= exe.run(main_program,
+            cost1, ok_slot_num1 = exe.run(main_program,
                             feed = myfeed,
                             fetch_list=[single_turn_cost, ok_slot_num],
                             )
+            # print(ok_slot_num1)
+            # print(abc1)
             dia_cost += cost1
             # if 1.0 - acc1 < 1e-1:
             if ok_slot_num1 == ALL_SLOT_NUM:
                 dia_acc += 1
         all_turns += turns 
     # print('cost: %f, acc: %f'%(dia_cost/turns, dia_acc/turns))
-        print('epoch: %d, avg_cost: %f, avg_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns))
+        # print(dia_name)
+    print('epoch: %d, avg_cost: %f, avg_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns))
 
     test_data = get_feed_data(test_dias)
     train_test(main_program, test_data)
