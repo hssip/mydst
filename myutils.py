@@ -343,8 +343,8 @@ def get_feed_data(in_dias,
 # def save_token_data()
 
 def save_predict(gates_predict, gates_label, kind = 'train'):
-    token_file = open(kind + ' tokens_predict.txt', mode='a+')
-    index_file = open(kind + ' indexs_predict.txt', mode='a+')
+    token_file = open(kind + '_tokens_predict.txt', mode='a+')
+    index_file = open(kind + '_indexs_predict.txt', mode='a+')
 
     leng = len(gates_predict)
     token_str = ''
