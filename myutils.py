@@ -139,7 +139,7 @@ def uttr_token2index(tokens, word_dict):
         else:
             tokindx.append(0)
     
-    return np.array(tokindx).astype('int64')
+    return tokindx
 
 def slots_attr2index():
     slotsindex = []
@@ -154,7 +154,7 @@ def slots_attr2index():
             slotsindex.append(i)
             i+=1
     
-    return np.array(slotsindex).astype('int64')
+    return slotsindex
 
 def slots2gates(slots1, slots2): 
     gates = []
@@ -164,23 +164,29 @@ def slots2gates(slots1, slots2):
         for slot, slot_value in domin_value.items():
             #none
             if slots1[domin][slot] == slots2[domin][slot]:
-                gates.append(gate2index['NONE'])
+                gates.append('NONE')
             #update
             elif slots2[domin][slot] not in special_slot_value['dontcare'] and \
                 slots2[domin][slot] not in special_slot_value['none']:
-                gates.append(gate2index['UPDATE'])
+                gates.append('UPDATE')
             #dontcare
             elif slots2[domin][slot] in special_slot_value['dontcare']:
-                gates.append(gate2index['DONTCARE'])
+                gates.append('DONTCARE')
             #delete
             elif slots2[domin][slot] in special_slot_value['none'] and \
                 slots1[domin][slot] not in special_slot_value['dontcare'] and \
                 slots1[domin][slot] not in special_slot_value['none']:
-                gates.append(gate2index['DELETE'])
+                gates.append('DELETE')
             else:
-                gates.append(gate2index['NONE'])
+                gates.append('NONE')
 
-    return np.array(gates).astype('int64')
+    return gates
+
+def getes2index(gates_tokens):
+    result = []
+    for gate in gates_tokens:
+        result.append(gate2index[gate])
+    return result
 
 def get_initial_slots():
     initial_slots = OrderedDict()
@@ -200,14 +206,11 @@ def load_all_slot():
     
     return result
 
-def slot2state(gates, slots2, value_list):
+def slot2state(gates, slots2):
     state_list = []
-    value_num = len(value_list)
-    
     for i, gate in enumerate(gates):
-        # state = [0 for i in range(value_num + 1)]
         if gate != gate2index['UPDATE'] and gate != gate2index['DONTCARE']:
-            state_list.append(0)
+            state_list.append('[None]')
             continue
         else:
             flag = False
@@ -215,124 +218,108 @@ def slot2state(gates, slots2, value_list):
             for domin in slots2:
                 for attr in slots2[domin]:
                     if j == i:
-                        try:
-                            # state[value_list.index(slots2[domin][attr])] = 1
-                            state_list.append(value_list.index(slots2[domin][attr]))
-                        except ValueError:
-                            # print('EXCEPT: domin: %s attr: %s value: %s '%(domin, attr, slots2[domin][attr]))
-                            state_list.append(0)
+                        state_list.append(slots2[domin][attr])
                         flag = True
                         break
                     j += 1
                 if flag:
                     break    
     
-    return np.array(state_list).astype('int64')
+    return state_list
+
+def state2index(state_tokens, value_list):
+    result = []
+    for state in state_tokens:
+        if state == '[None]':
+            result.append(0)
+        else:
+            try:
+                a = value_list.index(state)
+                result.append(a)
+            except ValueError:
+                result.append(0)
+    return result
 
 def get_feed_data(in_dias, 
                     hist_turn_length, 
                     uttr_token_length, 
                     word_dict, 
                     values_list, 
-                    all_slot,
-                    slots_feed_data, 
+                    # all_slot,
+                    # slots_feed_data, 
                     kind='train'):
-    dias_data = {}
+    dias_data = []
 
     tokens_file = open(kind + '_tokens.txt', mode='w+', encoding='utf-8')
     index_file = open(kind + '_index.txt', mode='w+', encoding='utf-8')
 
     for dia_name, dia in in_dias.items():
         dia_tokens = dialogs2tokens(dialogs=dia)
-        turns = int(len(dia_tokens)/2)
+        turns = int(len(dia_tokens)/2) 
         slots1 = get_initial_slots()
-
-        dia_sentence_data = []
-        dia_gate_data = []
-        dia_state_data = []
+        dia_data = []
         for i in range(turns):
+            # turn_data = []
             turn_tokens = get_turn_tokens(turn_number=i,
                                             hist_turn_length=hist_turn_length,
                                             dia_token_list=dia_tokens,
                                             uttr_token_length=uttr_token_length,
                                             if_complete_turns=True)
+            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+            
+            all_slot = load_all_slot()
+            slots_feed_data = slots_attr2index()
 
             slots2 = dia['turns_status'][i]
-            gates_feed_data = slots2gates(slots1, slots2)
+            gates_tokens = slots2gates(slots1, slots2)
+            gates_feed_data = getes2index(gates_tokens)
             slots1 = copy.deepcopy(slots2)
 
-            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+            
 
-            state_feed_data = slot2state(gates = gates_feed_data,
-                            slots2=slots2,
-                            value_list=values_list)
+            state_tokens = slot2state(gates = gates_feed_data,
+                            slots2=slots2)
+            states_feed_data = state2index(state_tokens=state_tokens,
+                                            value_list=values_list)
             ###############################################
-            dia_sentence_data.append(sentences_feed_data)
-            dia_gate_data.append(gates_feed_data)
-            dia_state_data.append(state_feed_data)
+            # dia_sentence_data.append(sentences_feed_data)
+            # dia_gate_data.append(gates_feed_data)
+            # dia_state_data.append(states_feed_data)
 
             #save_data
             #print sentence
             token_str = ''
             index_str = ''
             # print(turn_tokens)
-            token_str += 'tokens:['
-            for token in turn_tokens:
-                token_str += token + ', '
-            token_str += '] \n'
-
+            token_str += 'tokens:' + str(turn_tokens) + ' '
             # print(sentences_feed_data)
-            index_str += 'tokens:['
-            for index in sentences_feed_data:
-                index_str += str(index) + ', '
-            index_str += '] \n'
+            index_str += 'tokens:' + str(sentences_feed_data) + ' '
 
             # print slots
-            token_str += 'slot:['
-            for slot in all_slot:
-                token_str += slot + ', '
-            token_str += '] \n'
+            token_str += 'slot:' + str(all_slot) + ''
 
             # print slot index
-            index_str += 'slot:['
-            for slot in slots_feed_data:
-                index_str += str(slot) + ', '
-            index_str += '] \n'
-
+            index_str += 'slot:' + str(slots_feed_data) + ' '
             #print gates
-            token_str += 'gate:['
-            for gate in gates_feed_data:
-                token_str += GATE_INDEX[gate] + ', '
-            token_str += '] \n'
+            token_str += 'gate:' + str(gates_tokens) + ' '
 
             # print gata index
-            index_str += 'gate:['
-            for gate in gates_feed_data:
-                index_str += str(gate) + ', '
-            index_str += '] \n'
+            index_str += 'gate:' + str(gates_feed_data) + ' '
 
-            token_str += 'state:['
-            for index in state_feed_data:
-                if index == 0:
-                    token_str += '[NONE], '
-                else:
-                    token_str += values_list[index] + ', '
-            token_str += '] \n'
-            token_str += '*********************************\n'
+            token_str += 'state:' + str(state_tokens) + '\n'
 
             #print state index
-            index_str += 'state:['
-            for index in state_feed_data:
-                index_str += str(index) + ', '
-            index_str += '] \n'
-            index_str += '*********************************\n'
+            index_str += 'state:' + str(states_feed_data) + '\n'
             tokens_file.write(token_str)
             index_file.write(index_str)
 
+            [sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data]
+            # turn_data.append(slots_feed_data)
+            # turn_data.append(gates_feed_data)
+            # turn_data.append(states_feed_data)
+            dia_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
         
-        dias_data[dia_name] = {'dia_sentence_data':dia_sentence_data,
-                        'dia_gate_data': dia_gate_data,
-                        'dia_state_data': dia_state_data}
+        dias_data.append(dia_data)
 
     tokens_file.close()
     index_file.close()
@@ -351,6 +338,33 @@ def get_feed_data(in_dias,
     #     dia_gate_data = dia_data['dia_gate_data']
     #     dia_state_data = dia_data['dia_state_data']
     #     turns = 
-    return
+    # return
 
 # def save_token_data()
+
+def save_predict(gates_predict, gates_label, kind = 'train'):
+    token_file = open(kind + ' tokens_predict.txt', mode='w+')
+    index_file = open(kind + ' indexs_predict.txt', mode='w+')
+
+    leng = len(gates_predict)
+    token_str = ''
+    index_str = ''
+    pre = np.argmax(gates_predict, axis=1).tolist()
+    lab = gates_label.tolist()
+    index_str += 'predict:' + str(pre) +' '
+    index_str += 'label:' + str(lab) + '\n'
+
+    tok_pre = [GATE_INDEX[i] for i in pre]
+    tok_lab = [GATE_INDEX[i] for i in lab]
+    token_str += 'predict:' + str(tok_pre) + ' '
+    token_str += 'label:' + str(tok_lab) + '\n'
+
+    token_file.write(token_str)
+    index_file.write(index_str)
+
+    token_file.close()
+    index_file.close()
+
+
+
+    

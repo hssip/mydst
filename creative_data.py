@@ -210,13 +210,12 @@ def process_dialog(dialog):
         # print('odd turns')
         return {}
 
-    # temp = {}
-    # for a_goal in dialog['goal']:
-    #     if a_goal in ignore_in_goal:
-    #         continue
-    #     temp[a_goal] = dialog['goal'][a_goal]
-    # result['goal'] = temp
-    
+    # goal = dialog['goal']
+    # if not goal['taxi'] and \
+    #     not goal['hotel'] and \
+    #     not goal['restaurant'] and \
+    #     not goal['train']:
+    #     return {}
     user_turns_list = []
     sys_turns_list = []
     status_list = []
@@ -266,7 +265,7 @@ def load_diag_data(train_samples_num, test_saples_num, SNG=False):
     train_dialogs_info = {}
     test_dialogs_info = {}
     for dia_index, dialog_name in enumerate(json_data):
-        if SNG and'SNG' not in  dialog_name:
+        if SNG and 'SNG' not in  dialog_name:
             continue
         dialog = json_data[dialog_name]
         a = process_dialog(dialog)
@@ -309,4 +308,4 @@ def load_slot_value_list():
     a = slot_value_list.index('')
     slot_value_list[0], slot_value_list[a] = slot_value_list[a], slot_value_list[0]
 
-    return list(slot_value_list)
+    return slot_value_list
