@@ -354,7 +354,7 @@ def save_predict(gates_predict, gates_label, kind = 'train'):
     index_str += 'predict:' + str(pre) +' '
     index_str += 'label:' + str(lab) + '\n'
 
-    tok_pre = [GATE_INDEX[i] for i in np.argmax(pre)]
+    tok_pre = [GATE_INDEX[i] for i in np.argmax(pre, axis=1)]
     tok_lab = [GATE_INDEX[i] for i in lab]
     token_str += 'predict:' + str(tok_pre) + ' '
     token_str += 'label:' + str(tok_lab) + '\n'
