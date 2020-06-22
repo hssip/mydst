@@ -214,7 +214,8 @@ def process_dialog(dialog):
     # if not goal['taxi'] and \
     #     not goal['hotel'] and \
     #     not goal['restaurant'] and \
-    #     not goal['train']:
+    #     not goal['train'] and \
+    #     not goal['attraction']:
     #     return {}
     user_turns_list = []
     sys_turns_list = []

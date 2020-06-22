@@ -57,7 +57,7 @@ def utterance_encoder(sentences, dict_size):
     encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
                                                 inputs=emb)
     encode_out = fluid.layers.reshape(encode_out, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
-    encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='relu')
+    encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='sigmoid')
     
     return encode_out
 
@@ -125,7 +125,7 @@ def slot_gate(encoder_result, slots_embedding):
     head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
 
     #calc
-    gates = fluid.layers.fc(head1, size = GATE_KIND, act='relu')
+    gates = fluid.layers.fc(head1, size = GATE_KIND, act='softmax')
 
     return gates
 
