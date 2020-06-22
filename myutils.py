@@ -349,7 +349,7 @@ def save_predict(gates_predict, gates_label, kind = 'train'):
     leng = len(gates_predict)
     token_str = ''
     index_str = ''
-    pre = np.argmax(gates_predict, axis=1).tolist()
+    pre = gates_predict.tolist()
     lab = gates_label.tolist()
     index_str += 'predict:' + str(pre) +' '
     index_str += 'label:' + str(lab) + '\n'
