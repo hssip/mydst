@@ -245,13 +245,14 @@ def get_feed_data(in_dias,
                     uttr_token_length, 
                     word_dict, 
                     values_list, 
-                    # all_slot,
-                    # slots_feed_data, 
                     kind='train'):
     dias_data = []
 
-    tokens_file = open(kind + '_tokens.txt', mode='w+', encoding='utf-8')
-    index_file = open(kind + '_index.txt', mode='w+', encoding='utf-8')
+    tokens_file = open(kind + '_tokens.txt', mode='w', encoding='utf-8')
+    index_file = open(kind + '_index.txt', mode='w', encoding='utf-8')
+    token_str = ''
+    index_str = ''
+    nununu=0
 
     for dia_name, dia in in_dias.items():
         dia_tokens = dialogs2tokens(dialogs=dia)
@@ -288,8 +289,6 @@ def get_feed_data(in_dias,
 
             #save_data
             #print sentence
-            token_str = ''
-            index_str = ''
             # print(turn_tokens)
             token_str += 'tokens:' + str(turn_tokens) + ' '
             # print(sentences_feed_data)
@@ -310,60 +309,74 @@ def get_feed_data(in_dias,
 
             #print state index
             index_str += 'state:' + str(states_feed_data) + '\n'
-            tokens_file.write(token_str)
-            index_file.write(index_str)
 
-            [sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data]
+            # [sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data]
             # turn_data.append(slots_feed_data)
             # turn_data.append(gates_feed_data)
             # turn_data.append(states_feed_data)
+            nununu+=1
             dia_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
         
         dias_data.append(dia_data)
-
+    # print('tetetetetete:--------------' + str(nununu))
+    tokens_file.write(token_str)
+    index_file.write(index_str)
     tokens_file.close()
     index_file.close()
 
 
     return dias_data
 
-# def save_feed_data(dias_data, 
-                    # slots_feed_data,
-                    # kind='train'):
-
-
-
-    # for dia_name, dia_data in dias_data.items():
-    #     dia_sentence_data = dia_data['dia_sentence_data']
-    #     dia_gate_data = dia_data['dia_gate_data']
-    #     dia_state_data = dia_data['dia_state_data']
-    #     turns = 
-    # return
-
-# def save_token_data()
-
 def save_predict(gates_predict, gates_label, kind = 'train'):
-    token_file = open(kind + '_tokens_predict.txt', mode='a+')
-    index_file = open(kind + '_indexs_predict.txt', mode='a+')
+    token_file = open(kind + '_tokens_predict.txt', mode='w')
+    index_file = open(kind + '_indexs_predict.txt', mode='w')
 
     leng = len(gates_predict)
+    # print(leng)
     token_str = ''
     index_str = ''
-    pre = gates_predict.tolist()
-    lab = gates_label.tolist()
-    index_str += 'predict:' + str(pre) +' '
-    index_str += 'label:' + str(lab) + '\n'
+    for gate_predict, gate_label in zip(gates_predict, gates_label):
+        pre = gate_predict.tolist()
+        lab = gate_label.tolist()
+        index_str += 'predict:' + str(pre) +';'
+        index_str += 'label:' + str(lab) + '\n'
 
-    tok_pre = [GATE_INDEX[i] for i in np.argmax(pre, axis=1)]
-    tok_lab = [GATE_INDEX[i] for i in lab]
-    token_str += 'predict:' + str(tok_pre) + ' '
-    token_str += 'label:' + str(tok_lab) + '\n'
+        tok_pre = [GATE_INDEX[i] for i in np.argmax(pre, axis=1)]
+        tok_lab = [GATE_INDEX[i] for i in lab]
+        token_str += 'predict:' + str(tok_pre) + ';'
+        token_str += 'label:' + str(tok_lab) + '\n'
 
     token_file.write(token_str)
     index_file.write(index_str)
-
     token_file.close()
     index_file.close()
+
+def show_f1(gates_predict, gates_label):
+    
+    for i in range(4):
+        tp=0
+        fp=0
+        fn=0
+        tn=0
+        for gate_predict, gate_label in zip(gates_predict, gates_label):
+            pre = np.argmax(gate_predict, axis=1).tolist()
+            lab = gate_label.tolist()
+            for a,b in zip(pre, lab):
+                if  b== i and a == i:
+                    tp +=1
+                elif b!=i and a == i:
+                    fp+=1
+                elif b==i and a!=i:
+                    fn+=1
+                else:
+                    tn+=1
+        
+        precsion = tp/(tp+fp) if (tp+fp) > 0 else 0
+        recall = tp/(tp+fn) if (tp+fn) >0 else 0
+        f1 = 2 * precsion * recall/(precsion + recall) if precsion + recall >0 else 0
+        print(GATE_INDEX[i] + ' f1 score:  %f' % (f1))
+
+    return
 
 
 
