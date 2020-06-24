@@ -24,6 +24,8 @@ ENCODER_LAYERS_NUM = 1
 ATTENTION_HEAD_NUM = 1
 SLOTGATE_HEAD_NUM = 1
 
+lr = 0.1
+
 
 all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
@@ -109,7 +111,7 @@ def slot_gate(encoder_result, slots_embedding):
     v1 = fluid.layers.mul(encoder_result, S_V_1)
 
     qk = fluid.layers.mul(q1, fluid.layers.t(k1))# /math.sqrt(SLOT_VALUE_NUM)
-    sqk = fluid.layers.tan(qk)
+    sqk = fluid.layers.softmax(qk)
     head1 = fluid.layers.mul(sqk, v1)
 
     #calc
@@ -118,7 +120,7 @@ def slot_gate(encoder_result, slots_embedding):
     return gates, qk, sqk
 
 def optimizer_program():
-    return fluid.optimizer.Adagrad(learning_rate=0.01)
+    return fluid.optimizer.Adagrad(learning_rate=lr)
 
 def get_single_turn_cost(gates, gates_label, state, state_label):
     loss1 = fluid.layers.reduce_max(fluid.layers.cross_entropy(gates, gates_label))
@@ -262,7 +264,7 @@ def train_test(train_test_program, test_data):
         all_turns += turns
     save_predict(temp1, temp2, kind='test')
     print('test joint_acc: %f, slot_acc: %f'%(dia_acc/all_turns, all_slot_acc/all_turns))
-    # show_f1(temp1, temp2)
+    show_f1(temp1, temp2)
     return dia_acc/all_turns
 
 feeder = fluid.DataFeeder(feed_list=['sentences_index_holder','slots_index_holder',
@@ -313,11 +315,11 @@ for epoch in range(PASS_NUM):
         
         # print(encoder_result1.tolist())
         # show_f1(temp1, temp2)
-            if dia_num == 0 and i < 4:
-                t_file = open('temp.txt', mode='a+')
-                t_file.write(str(qk1.tolist()) + '\n')
-                t_file.write(str(sqk1.tolist()) + '\n')
-                t_file.close()
+            # if dia_num == 0 and i < 4:
+            t_file = open('temp.txt', mode='a+')
+            t_file.write('qk :' + str(qk1.tolist()) + '\n')
+            t_file.write('sqk:'+ str(sqk1.tolist()) + '\n')
+            t_file.close()
         all_turns += turns 
         if dia_num % 50 == 0:
             print('%d dias, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/all_turns,dia_acc/all_turns, all_slot_acc/all_turns))
@@ -326,5 +328,5 @@ for epoch in range(PASS_NUM):
     # print('etetetetet-----------' + str(all_turns))
     save_predict(temp1, temp2, kind='train')
     print('epoch: %d, avg_cost: %f, avg_acc: %f, slot_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns, all_slot_acc/all_turns))
-    # show_f1(temp1, temp2)
+    show_f1(temp1, temp2)
     train_test(main_program, test_dias_data)
