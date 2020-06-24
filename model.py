@@ -15,9 +15,9 @@ PASS_NUM = 5
 HISTR_TURNS_LENGTH = 2
 # SENTENCE_LENGTH = 32
 VOCAB_EMBEDDING_LENGTH = 256
-SLOT_EMBEDDING_LENGTH = 256
+SLOT_EMBEDDING_LENGTH = 128
 
-UTTR_TOKEN_LENGTH = 128
+UTTR_TOKEN_LENGTH = 32
 
 ENCODER_HIDDEN_SIZE = 256
 ENCODER_LAYERS_NUM = 1
@@ -28,7 +28,7 @@ SLOTGATE_HEAD_NUM = 1
 all_slot = load_all_slot()
 ALL_SLOT_NUM = len(all_slot)
 values_list = load_slot_value_list()
-SLOT_VALUE_NUM = len(values_list) + 1
+SLOT_VALUE_NUM = len(values_list) + 3
 GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 SLOT_GATE_HIDDEN_SIZE = 64
@@ -43,8 +43,8 @@ def utterance_encoder(sentences, dict_size):
     # init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
     # init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
     
-    emb = fluid.layers.reshape(x = emb,
-                                shape=[1, UTTR_TOKEN_LENGTH, VOCAB_EMBEDDING_LENGTH])
+    # emb = fluid.layers.reshape(x = emb,
+                                # shape=[None, None, VOCAB_EMBEDDING_LENGTH])
 
     # encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
     #                                                             init_h=init_h,
@@ -56,14 +56,14 @@ def utterance_encoder(sentences, dict_size):
     cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
     encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
                                                 inputs=emb)
-    encode_out = fluid.layers.reshape(encode_out, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
-    encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='sigmoid')
+    encode_out = fluid.layers.reshape(encode_out, shape=[-1, ENCODER_HIDDEN_SIZE])
+    encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='tanh')
     
     return encode_out
 
 def state_generator(encoder_result, slots_embedding):
 
-    encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
+    # encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
 
     G_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, int(SLOT_VALUE_NUM/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
@@ -79,7 +79,8 @@ def state_generator(encoder_result, slots_embedding):
     v1 = fluid.layers.mul(encoder_result, G_V_1)
 
     qk = fluid.layers.mul(q1, fluid.layers.t(k1))# /math.sqrt(SLOT_VALUE_NUM)
-    head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
+    sqk = fluid.layers.softmax(qk)
+    head1 = fluid.layers.mul(sqk, v1)
 
     #calc
     states = fluid.layers.fc(head1, size = SLOT_VALUE_NUM, act='softmax')
@@ -88,7 +89,7 @@ def state_generator(encoder_result, slots_embedding):
 
 def slot_gate(encoder_result, slots_embedding):
 
-    encoder_result = fluid.layers.reshape(encoder_result, shape=[UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE])
+    # encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
 
     S_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, SLOT_GATE_HIDDEN_SIZE], 
                                                 dtype='float32', 
@@ -99,26 +100,30 @@ def slot_gate(encoder_result, slots_embedding):
     S_V_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, SLOT_GATE_HIDDEN_SIZE], 
                                                 dtype='float32', 
                                                 name='S_V_1')
+    # S_Q_1 = fluid.layers.Print(S_Q_1, message='---S_Q_1')
+    # S_V_1 = fluid.layers.Print(S_K_1, message='---S_K_1')
+    # S_V_1 = fluid.layers.Print(S_V_1, message='---S_V_1')
     
     q1 = fluid.layers.mul(slots_embedding, S_Q_1)
     k1 = fluid.layers.mul(encoder_result, S_K_1)
     v1 = fluid.layers.mul(encoder_result, S_V_1)
 
     qk = fluid.layers.mul(q1, fluid.layers.t(k1))# /math.sqrt(SLOT_VALUE_NUM)
-    head1 = fluid.layers.mul(fluid.layers.softmax(qk), v1)
+    sqk = fluid.layers.tan(qk)
+    head1 = fluid.layers.mul(sqk, v1)
 
     #calc
     gates = fluid.layers.fc(head1, size = GATE_KIND, act='softmax')
 
-    return gates
+    return gates, qk, sqk
 
 def optimizer_program():
-    return fluid.optimizer.Adagrad(learning_rate=0.1)
+    return fluid.optimizer.Adagrad(learning_rate=0.01)
 
 def get_single_turn_cost(gates, gates_label, state, state_label):
-    loss1 = fluid.layers.mean(fluid.layers.cross_entropy(gates, gates_label))
+    loss1 = fluid.layers.reduce_max(fluid.layers.cross_entropy(gates, gates_label))
     # loss2 = fluid.layers.reduce_mean(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(fluid.layers.log(-state), state_label), dim = 1))
-    loss2 = fluid.layers.mean(fluid.layers.cross_entropy(state, state_label))
+    loss2 = fluid.layers.reduce_max(fluid.layers.cross_entropy(state, state_label))
     # loss2 = 0
 
     return loss1 + loss2
@@ -152,7 +157,7 @@ def get_slot_acc(gates, gates_label, states, states_label):
 
 def mymodel(dict_size):
     sentences_index_holder = fluid.data(name='sentences_index_holder',
-                                shape=[UTTR_TOKEN_LENGTH],
+                                shape=[1, None],
                                 dtype='int64')
 
     slots_index_holder = fluid.data(name='slots_index_holder',
@@ -164,16 +169,16 @@ def mymodel(dict_size):
 
     encoder_result= utterance_encoder(sentences_index_holder, dict_size)
     states= state_generator(encoder_result, slots_emb)
-    gates = slot_gate(encoder_result, slots_emb)
+    gates, qk, sqk = slot_gate(encoder_result, slots_emb)
 
-    return gates, states
+    return gates, states, qk, sqk
 
 def single_turn_train_program(dict_size):
 
     gates_label = fluid.data('gates_label', shape=[ALL_SLOT_NUM], dtype='int64')
     state_label= fluid.data('state_label', shape=[ALL_SLOT_NUM], dtype='int64')
 
-    gates_predict, states_predict = mymodel(dict_size)
+    gates_predict, states_predict, qk, sqk = mymodel(dict_size)
     single_turn_cost = get_single_turn_cost(gates=gates_predict, 
                     gates_label=gates_label, 
                     state=states_predict, 
@@ -185,11 +190,11 @@ def single_turn_train_program(dict_size):
                                     states_label=state_label)
     # slot_acc = get_slot_acc(gates=gates_predict, gates_label=gates_label)
     
-    return gates_predict, single_turn_cost, ok_slot_num, states_predict #, slot_acc
+    return gates_predict, single_turn_cost, ok_slot_num, states_predict, qk, sqk
 
 word_dict = pd.dataset.imdb.word_dict()
 
-gates_predict, single_turn_cost, ok_slot_num, state_predict = single_turn_train_program(len(word_dict))
+gates_predict, single_turn_cost, ok_slot_num, state_predict, qk, sqk = single_turn_train_program(len(word_dict))
 optimizer = optimizer_program()
 optimizer.minimize(single_turn_cost)
 
@@ -242,7 +247,7 @@ def train_test(train_test_program, test_data):
                 'state_label':state_feed_data
             }
 
-            gates_predict1, cost1, ok_slot_num1, state_predict1= exe.run(train_test_program,
+            gates_predict1, cost1, ok_slot_num1, state_predict1,= exe.run(train_test_program,
                             feed = myfeed,
                             fetch_list=[gates_predict,single_turn_cost, ok_slot_num, state_predict]
                             )
@@ -280,6 +285,8 @@ for epoch in range(PASS_NUM):
 
         turns = len(dia_data)
         for i in range(turns):
+            # if dia_num > 0 or i > 1:
+            #     continue
             sentences_feed_data = np.array(dia_data[i][0])
             slots_feed_data = np.array(dia_data[i][1])
             gates_feed_data = np.array(dia_data[i][2])
@@ -291,9 +298,10 @@ for epoch in range(PASS_NUM):
                 'state_label':np.array(dia_data[i][3])
             }
 
-            gates_predict1, cost1, ok_slot_num1, state_predict1 = exe.run(main_program,
+            gates_predict1, cost1, ok_slot_num1, state_predict1, qk1, sqk1 = exe.run(main_program,
                             feed = myfeed,
-                            fetch_list=[gates_predict, single_turn_cost, ok_slot_num, state_predict]
+                            fetch_list=[gates_predict, single_turn_cost, ok_slot_num, state_predict,
+                                        qk, sqk]
                             )
             temp1.append(gates_predict1)
             temp2.append(gates_feed_data)
@@ -302,10 +310,18 @@ for epoch in range(PASS_NUM):
                 dia_acc += 1
             slot_acc1 = get_slot_acc(gates_predict1, gates_feed_data, state_predict1, state_feed_data)
             all_slot_acc += slot_acc1
-        all_turns += turns 
+        
+        # print(encoder_result1.tolist())
         # show_f1(temp1, temp2)
+            if dia_num == 0 and i < 4:
+                t_file = open('temp.txt', mode='a+')
+                t_file.write(str(qk1.tolist()) + '\n')
+                t_file.write(str(sqk1.tolist()) + '\n')
+                t_file.close()
+        all_turns += turns 
         if dia_num % 50 == 0:
             print('%d dias, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/all_turns,dia_acc/all_turns, all_slot_acc/all_turns))
+            
             # show_f1(temp1, temp2)
     # print('etetetetet-----------' + str(all_turns))
     save_predict(temp1, temp2, kind='train')

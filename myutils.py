@@ -91,18 +91,6 @@ def get_turn_tokens(turn_number,
         raise RuntimeError('turn_nunmber connot be negtive')
     elif len(dia_token_list) % 2 != 0:
         raise RuntimeError('dia_token_list length wrong')
-    
-    # if turn_number < hist_turn_length:
-    #     for i in range(hist_turn_length - turn_number):
-    #         for j in range(2 * max_sentence_length):
-    #             all_tokens.append('None')
-    #     for i in range(turn_number):
-    #         all_tokens.extend(dia_token_list[2 * i])
-    #         all_tokens.extend(dia_token_list[2 * i + 1])
-    # else:
-    #     for i in range(turn_number - hist_turn_length, turn_number):
-    #         all_tokens.extend(dia_token_list[2 * i])
-    #         all_tokens.extend(dia_token_list[2 * i + 1])
     if turn_number < hist_turn_length:
         for i in range(turn_number):
             all_tokens.extend(dia_token_list[2 * i])
@@ -120,24 +108,25 @@ def get_turn_tokens(turn_number,
     all_tokens.append('[END]')
     leng = len(all_tokens)
 
-    for i in range(leng, uttr_token_length):
-        all_tokens.append('[NONE]')
+    # for i in range(leng, uttr_token_length):
+        # all_tokens.append('[NONE]')
 
-    leng = len(all_tokens)
-    new_all_tokens = []
-    for i in range(leng - uttr_token_length, leng):
-        new_all_tokens.append(all_tokens[i])
+    # leng = len(all_tokens)
+    # new_all_tokens = []
+    # for i in range(leng - uttr_token_length, leng):
+    #     new_all_tokens.append(all_tokens[i])
 
-    return new_all_tokens
+    return all_tokens
 
 def uttr_token2index(tokens, word_dict):
-    tokindx = []
+    tokindx = [[]]
+    leng = len(word_dict)
     for token in tokens:
         a = bytes(token, encoding='utf8')
         if  a in word_dict:
-            tokindx.append(word_dict[a])
+            tokindx[0].append(word_dict[a])
         else:
-            tokindx.append(0)
+            tokindx[0].append(0)
     
     return tokindx
 
@@ -146,11 +135,6 @@ def slots_attr2index():
     i = 0
     for d_index, domin in enumerate(domin_list):
         for slot in slots_list[d_index]:
-            # a = bytes(slot, encoding='utf8')
-            # if a in word_dict:
-            #     slotsindex.append(word_dict[a])
-            # else:
-            #     slotsindex.append(0)
             slotsindex.append(i)
             i+=1
     
@@ -229,6 +213,7 @@ def slot2state(gates, slots2):
 
 def state2index(state_tokens, value_list):
     result = []
+    out_index = len(value_list)
     for state in state_tokens:
         if state == '[None]':
             result.append(0)
@@ -237,7 +222,7 @@ def state2index(state_tokens, value_list):
                 a = value_list.index(state)
                 result.append(a)
             except ValueError:
-                result.append(0)
+                result.append(out_index)
     return result
 
 def get_feed_data(in_dias, 
