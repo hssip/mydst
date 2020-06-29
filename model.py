@@ -44,21 +44,6 @@ def utterance_encoder(sentences, dict_size):
                                 name='word_embs',
                                 initializer=fluid.initializer.Normal(0., VOCAB_EMBEDDING_LENGTH**-0.5)
                             ))
-    # emb = fluid.layers.so
-
-    # init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
-    # init_c = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
-    
-    # emb = fluid.layers.reshape(x = emb,
-                                # shape=[None, None, VOCAB_EMBEDDING_LENGTH])
-
-    # encode_out, encode_last_h, encode_last_c = fluid.layers.lstm(input=emb, 
-    #                                                             init_h=init_h,
-    #                                                             init_c=init_c,
-    #                                                             max_len=VOCAB_EMBEDDING_LENGTH,
-    #                                                             hidden_size=ENCODER_HIDDEN_SIZE,
-    #                                                             num_layers=ENCODER_HIDDEN_SIZE,
-    #                                                             is_bidirec=False)
     cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
     encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
                                                 inputs=emb)
@@ -99,7 +84,6 @@ def state_generator(encoder_result, slots_embedding):
 def slot_gate(encoder_result, slots_embedding):
 
     # encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
-
     # S_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, SLOT_GATE_HIDDEN_SIZE], 
     #                                             dtype='float32', 
     #                                             name='S_Q_1',
