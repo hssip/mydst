@@ -39,7 +39,11 @@ save_model_name = 'first_model.mdl'
 def utterance_encoder(sentences, dict_size):
 
     emb = fluid.embedding(input=sentences,
-                            size=[dict_size, VOCAB_EMBEDDING_LENGTH])
+                            size=[dict_size, VOCAB_EMBEDDING_LENGTH],
+                            param_attr=fluid.ParamAttr(
+                                name='word_embs',
+                                initializer=fluid.initializer.Normal(0., VOCAB_EMBEDDING_LENGTH**-0.5)
+                            ))
     # emb = fluid.layers.so
 
     # init_h = fluid.layers.fill_constant(shape=[ENCODER_LAYERS_NUM, UTTR_TOKEN_LENGTH, ENCODER_HIDDEN_SIZE], dtype='float32',value=0.0)
@@ -69,13 +73,16 @@ def state_generator(encoder_result, slots_embedding):
 
     G_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, int(SLOT_VALUE_NUM/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
-                                                name='G_Q_1')
+                                                name='G_Q_1',
+                                                attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
     G_K_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, int(SLOT_VALUE_NUM/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
-                                                name='G_K_1')
+                                                name='G_K_1',
+                                                attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
     G_V_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, int(SLOT_VALUE_NUM/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
-                                                name='G_V_1')
+                                                name='G_V_1',
+                                                attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
     q1 = fluid.layers.mul(slots_embedding, G_Q_1)
     k1 = fluid.layers.mul(encoder_result, G_K_1)
     v1 = fluid.layers.mul(encoder_result, G_V_1)
@@ -95,26 +102,22 @@ def slot_gate(encoder_result, slots_embedding):
 
     # S_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, SLOT_GATE_HIDDEN_SIZE], 
     #                                             dtype='float32', 
-    #                                             name='S_Q_1')
+    #                                             name='S_Q_1',
+    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
     # S_K_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, SLOT_GATE_HIDDEN_SIZE], 
     #                                             dtype='float32', 
-    #                                             name='S_K_1')
+    #                                             name='S_K_1',
+    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
     # S_V_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, SLOT_GATE_HIDDEN_SIZE], 
     #                                             dtype='float32', 
-    #                                             name='S_V_1')
-    # S_Q_1 = fluid.layers.Print(S_Q_1, message='---S_Q_1')
-    # S_V_1 = fluid.layers.Print(S_K_1, message='---S_K_1')
-    # S_V_1 = fluid.layers.Print(S_V_1, message='---S_V_1')
-    
+    #                                             name='S_V_1',
+    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))   
     # q1 = fluid.layers.mul(slots_embedding, S_Q_1)
     # k1 = fluid.layers.mul(encoder_result, S_K_1)
     # v1 = fluid.layers.mul(encoder_result, S_V_1)
-
     # qk = fluid.layers.mul(q1, fluid.layers.t(k1))# /math.sqrt(SLOT_VALUE_NUM)
     # sqk = fluid.layers.softmax(qk)
     # head1 = fluid.layers.mul(sqk, v1)
-
-    #calc
     # gates = fluid.layers.fc(head1, size = GATE_KIND, act='softmax')
     contex_list = []
     for i in range(ALL_SLOT_NUM):
@@ -125,8 +128,6 @@ def slot_gate(encoder_result, slots_embedding):
         contex_vec = fluid.layers.unsqueeze(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(score, encoder_result), dim=0),
                                             axes=[0])
         contex_list.append(contex_vec)
-    # contex_list = np.array(contex_list)
-    
     contex_ = fluid.layers.concat(contex_list,axis=0)
     gates = fluid.layers.fc(contex_, size=GATE_KIND, act='softmax')
 
@@ -137,16 +138,10 @@ def optimizer_program():
 
 def get_single_turn_cost(gates, gates_label, state, state_label):
     loss1 = fluid.layers.reduce_max(fluid.layers.cross_entropy(gates, gates_label))
-    # loss2 = fluid.layers.reduce_mean(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(fluid.layers.log(-state), state_label), dim = 1))
     loss2 = fluid.layers.reduce_max(fluid.layers.cross_entropy(state, state_label))
-    # loss2 = 0
-
     return loss1 + loss2
 
 def get_ok_slot_num(gates, gates_label, states, states_label):
-
-    # return fluid.layers.accuracy(input=gates, label=gates_label)
-    # gates_label = fluid.layers.reshape(gates_label, shape=[ALL_SLOT_NUM])
     ok_slot = fluid.layers.cast(
             fluid.layers.equal(fluid.layers.argmax(gates, axis=1), gates_label), 
             dtype='int64')
@@ -238,47 +233,43 @@ print('load data and save data ok, begin to train')
 
 def train_test(train_test_program, test_data):
     print('begin test!')
-    acc_set = []
     avg_loss_set = []
-    all_turns = 0
     dia_acc = 0.0
     all_slot_acc = 0.0
-    # feeder = fluid.DataFeeder()
     temp1 = []
     temp2 = []
+    np.random.shuffle(test_data)
     for dia_data in test_data:
         dia_cost = 0.0
 
-        turns = len(dia_data)
-        for i in range(turns):
-            sentences_feed_data = np.array(dia_data[i][0])
-            slots_feed_data = np.array(dia_data[i][1])
-            gates_feed_data = np.array(dia_data[i][2])
-            state_feed_data = np.array(dia_data[i][3])
-            myfeed = {
-                'sentences_index_holder':sentences_feed_data,
-                'slots_index_holder':slots_feed_data,
-                'gates_label':gates_feed_data,
-                'state_label':state_feed_data
-            }
+        sentences_feed_data = np.array(dia_data[0])
+        slots_feed_data = np.array(dia_data[1])
+        gates_feed_data = np.array(dia_data[2])
+        state_feed_data = np.array(dia_data[3])
+        myfeed = {
+            'sentences_index_holder':sentences_feed_data,
+            'slots_index_holder':slots_feed_data,
+            'gates_label':gates_feed_data,
+            'state_label':state_feed_data
+        }
 
-            gates_predict1, cost1, ok_slot_num1, state_predict1,= exe.run(train_test_program,
-                            feed = myfeed,
-                            fetch_list=[gates_predict,single_turn_cost, ok_slot_num, state_predict]
-                            )
-            # dia_cost += cost1
-            temp1.append(gates_predict1)
-            temp2.append(gates_feed_data)
+        gates_predict1, cost1, ok_slot_num1, state_predict1,= exe.run(train_test_program,
+                        feed = myfeed,
+                        fetch_list=[gates_predict,single_turn_cost, ok_slot_num, state_predict]
+                        )
+        # dia_cost += cost1
+        temp1.append(gates_predict1)
+        temp2.append(gates_feed_data)
             # save_predict(gates_predict1, gates_feed_data, 'test')
-            if ok_slot_num1  == ALL_SLOT_NUM:
-                dia_acc += 1
-            slot_acc1 = get_slot_acc(gates_predict1, gates_feed_data, state_predict1, state_feed_data)
-            all_slot_acc+=slot_acc1
-        all_turns += turns
+        if ok_slot_num1  == ALL_SLOT_NUM:
+            dia_acc += 1
+        slot_acc1 = get_slot_acc(gates_predict1, gates_feed_data, state_predict1, state_feed_data)
+        all_slot_acc+=slot_acc1
+        # all_turns += turns
     save_predict(temp1, temp2, kind='test')
-    print('test joint_acc: %f, slot_acc: %f'%(dia_acc/all_turns, all_slot_acc/all_turns))
+    print('test joint_acc: %f, slot_acc: %f'%(dia_acc/dia_num, all_slot_acc/dia_num))
     show_f1(temp1, temp2)
-    return dia_acc/all_turns
+    return dia_acc/dia_num
 
 feeder = fluid.DataFeeder(feed_list=['sentences_index_holder','slots_index_holder',
                                         'gates_label','state_label'],
@@ -287,8 +278,6 @@ feeder = fluid.DataFeeder(feed_list=['sentences_index_holder','slots_index_holde
 #train
 for epoch in range(PASS_NUM):
 
-    all_turns = 0
-    dia_num = 0
     dia_acc = 0.0
     dia_cost = 0.0
     all_slot_acc = 0.0
@@ -297,33 +286,28 @@ for epoch in range(PASS_NUM):
     temp1 = []
     temp2 = []
     for dia_num, dia_data in enumerate(train_dias_data):
+        sentences_feed_data = np.array(dia_data[0])
+        slots_feed_data = np.array(dia_data[1])
+        gates_feed_data = np.array(dia_data[2])
+        state_feed_data = np.array(dia_data[3])
+        myfeed = {
+            'sentences_index_holder':np.array(dia_data[0]),
+            'slots_index_holder':np.array(dia_data[1]),
+            'gates_label':np.array(dia_data[2]),
+            'state_label':np.array(dia_data[3])
+        }
 
-        turns = len(dia_data)
-        for i in range(turns):
-            # if dia_num > 0 or i > 1:
-            #     continue
-            sentences_feed_data = np.array(dia_data[i][0])
-            slots_feed_data = np.array(dia_data[i][1])
-            gates_feed_data = np.array(dia_data[i][2])
-            state_feed_data = np.array(dia_data[i][3])
-            myfeed = {
-                'sentences_index_holder':np.array(dia_data[i][0]),
-                'slots_index_holder':np.array(dia_data[i][1]),
-                'gates_label':np.array(dia_data[i][2]),
-                'state_label':np.array(dia_data[i][3])
-            }
-
-            gates_predict1, cost1, ok_slot_num1, state_predict1 = exe.run(main_program,
-                            feed = myfeed,
-                            fetch_list=[gates_predict, single_turn_cost, ok_slot_num, state_predict]
-                            )
-            temp1.append(gates_predict1)
-            temp2.append(gates_feed_data)
-            dia_cost += cost1
-            if ok_slot_num1 == ALL_SLOT_NUM:
-                dia_acc += 1
-            slot_acc1 = get_slot_acc(gates_predict1, gates_feed_data, state_predict1, state_feed_data)
-            all_slot_acc += slot_acc1
+        gates_predict1, cost1, ok_slot_num1, state_predict1 = exe.run(main_program,
+                        feed = myfeed,
+                        fetch_list=[gates_predict, single_turn_cost, ok_slot_num, state_predict]
+                        )
+        temp1.append(gates_predict1)
+        temp2.append(gates_feed_data)
+        dia_cost += cost1
+        if ok_slot_num1 == ALL_SLOT_NUM:
+            dia_acc += 1
+        slot_acc1 = get_slot_acc(gates_predict1, gates_feed_data, state_predict1, state_feed_data)
+        all_slot_acc += slot_acc1
         
         # print(encoder_result1.tolist())
         # show_f1(temp1, temp2)
@@ -332,13 +316,13 @@ for epoch in range(PASS_NUM):
             # t_file.write('qk :' + str(qk1.tolist()) + '\n')
             # t_file.write('sqk:'+ str(sqk1.tolist()) + '\n')
             # t_file.close()
-        all_turns += turns 
-        if dia_num % 50 == 0:
-            print('%d dias, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/all_turns,dia_acc/all_turns, all_slot_acc/all_turns))
+        # all_turns += turns 
+        if dia_num % 100 == 0 and dia_num != 0:
+            print('%d turn, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/dia_num,dia_acc/dia_num, all_slot_acc/dia_num))
             
             # show_f1(temp1, temp2)
     # print('etetetetet-----------' + str(all_turns))
     save_predict(temp1, temp2, kind='train')
-    print('epoch: %d, avg_cost: %f, avg_acc: %f, slot_acc: %f' %(epoch,dia_cost/all_turns,dia_acc/all_turns, all_slot_acc/all_turns))
+    print('epoch: %d, avg_cost: %f, avg_acc: %f, slot_acc: %f' %(epoch,dia_cost/dia_num,dia_acc/dia_num, all_slot_acc/dia_num))
     show_f1(temp1, temp2)
     train_test(main_program, test_dias_data)

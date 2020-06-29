@@ -299,10 +299,10 @@ def get_feed_data(in_dias,
             # turn_data.append(slots_feed_data)
             # turn_data.append(gates_feed_data)
             # turn_data.append(states_feed_data)
-            nununu+=1
-            dia_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
+            # nununu+=1
+            # dia_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
         
-        dias_data.append(dia_data)
+            dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
     # print('tetetetetete:--------------' + str(nununu))
     tokens_file.write(token_str)
     index_file.write(index_str)
