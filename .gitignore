@@ -3,4 +3,3 @@ ignore_*.*
 /__pycache__/
 data/
 new/
-utils/

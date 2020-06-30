@@ -8,31 +8,17 @@ from zipfile import ZipFile
 from collections import OrderedDict 
 import copy
 
-# done_slots = {
-#     'taxi':['leaveAt', 'destination', 'departure', 'arriveBy'],
-#     'hotel':['name','type', 'parking', 'pricerange', 'internet', 
-#                 'day', 'stay', 'people', 'area', 'stars'],
-#     'attraction':['name', 'type', 'area'],
-#     'train':['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure'],
-#     'restaurant' :['food', 'pricerange', 'area', 'name', 'time', 'day', 'people']
-# }
-domin_list = ['hotel', 'restaurant', 'taxi', 'attraction', 'train']
+from predata_2_1 import *
+
+domain_list = ['hotel', 'restaurant', 'taxi', 'attraction', 'train']
 slots_list = [['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay', 'people', 'area', 'stars'],
                 ['food', 'pricerange', 'area', 'name', 'time', 'day', 'people'],
-                ['leaveAt', 'destination', 'departure', 'arriveBy'], 
+                ['leaveat', 'destination', 'departure', 'arriveby'], 
                 ['name', 'type', 'area'],
-                ['people', 'leaveAt', 'destination', 'day','arriveBy', 'departure']
+                ['people', 'leaveat', 'destination', 'day','arriveby', 'departure']
                 ]
 
-
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
-
-# gate2index = {
-#     'UPDATE':   [1,0,0,0],
-#     'DONTCARE': [0,1,0,0],
-#     'NONE':     [0,0,1,0],
-#     'DELETE':   [0,0,0,1]
-# }
 
 gate2index = {
     'UPDATE':   0,
@@ -47,76 +33,77 @@ special_slot_value={
             'not mendtioned', '']
 }
 
-def dialogs2tokens(dialogs):
-    user_diag_list = dialogs['user_turns']
-    sys_diag_list = dialogs['sys_turns']
-    diag_tokens = []
-    for user_diag, sys_diag in zip(user_diag_list, sys_diag_list):
-        user_tokens = user_diag.strip('\n').split(' ')
-        sys_tokens = sys_diag.strip('\n').split(' ')
-        # i=0
-        turn_tokens = []
-        for token in user_tokens:
-            turn_tokens.append(token)
-            # i+=1
-            # if i >= max_sentence_length:
-                # break
-        # for j in range(i, max_sentence_length):
-            # turn_tokens.append('None')
-        diag_tokens.append(turn_tokens)
+def load_slot_value_list():
+    slot_value_list = set()
+    slot_value_list.add('')
+    with open('pub_dataset/MultiWOZ_1.0/ontology.json', 'r') as json_file:
+        data = json.load(json_file)
+        for index, domain_slot in enumerate(data):
+            for value in data[domain_slot]:
+                slot_value_list.add(value)
+    
+    slot_value_list = list(slot_value_list)
+    a = slot_value_list.index('')
+    slot_value_list[0], slot_value_list[a] = slot_value_list[a], slot_value_list[0]
 
-        turn_tokens = []
-        # i=0
-        for token in sys_tokens:
-            turn_tokens.append(token)
-            # i+=1
-            # if i >= max_sentence_length:
-                # break
-        # for j in range(i, max_sentence_length):
-            # turn_tokens.append('None')
-        diag_tokens.append(turn_tokens)
+    return slot_value_list
 
-    return diag_tokens 
+# def dialogs2tokens(dialogs):
+#     user_diag_list = dialogs['user_turns']
+#     sys_diag_list = dialogs['sys_turns']
+#     diag_tokens = []
+#     for user_diag, sys_diag in zip(user_diag_list, sys_diag_list):
+#         user_tokens = user_diag.strip('\n').split(' ')
+#         sys_tokens = sys_diag.strip('\n').split(' ')
+#         turn_tokens = []
+#         for token in user_tokens:
+#             turn_tokens.append(token)
+#         diag_tokens.append(turn_tokens)
 
-def get_turn_tokens(turn_number,
-                hist_turn_length,
-                dia_token_list,
-                uttr_token_length,
-                if_complete_turns = True):
+#         turn_tokens = []
+#         for token in sys_tokens:
+#             turn_tokens.append(token)
+#         diag_tokens.append(turn_tokens)
 
-    all_tokens = ['[START]']
+#     return diag_tokens 
 
-    #assert legal
-    if turn_number < 0:
-        raise RuntimeError('turn_nunmber connot be negtive')
-    elif len(dia_token_list) % 2 != 0:
-        raise RuntimeError('dia_token_list length wrong')
-    if turn_number < hist_turn_length:
-        for i in range(turn_number):
-            all_tokens.extend(dia_token_list[2 * i])
-            all_tokens.extend(dia_token_list[2 * i + 1])
-            all_tokens.append('[STEP]')
-    else:
-        for i in range(turn_number - hist_turn_length, turn_number):
-            all_tokens.extend(dia_token_list[2 * i])
-            all_tokens.extend(dia_token_list[2 * i + 1])
-            all_tokens.append('[STEP]')
+# def get_turn_tokens(turn_number,
+#                 dia_token_list,
+#                 # uttr_token_length,
+#                 if_complete_turns = True):
 
-    all_tokens.extend(dia_token_list[2 * turn_number])
-    # all_tokens.extend(dia_token_list[2 * turn_number + 1])
+#     all_tokens = ['[START]']
 
-    all_tokens.append('[END]')
-    leng = len(all_tokens)
+#     #assert legal
+#     if turn_number < 0:
+#         raise RuntimeError('turn_nunmber connot be negtive')
+#     elif len(dia_token_list) % 2 != 0:
+#         raise RuntimeError('dia_token_list length wrong')
+#     # if turn_number < hist_turn_length:
+#     for i in range(turn_number):
+#         all_tokens.extend(dia_token_list[2 * i])
+#         all_tokens.extend(dia_token_list[2 * i + 1])
+#         all_tokens.append('[STEP]')
+#     # else:
+#     #     for i in range(turn_number - hist_turn_length, turn_number):
+#     #         all_tokens.extend(dia_token_list[2 * i])
+#     #         all_tokens.extend(dia_token_list[2 * i + 1])
+#     #         all_tokens.append('[STEP]')
 
-    # for i in range(leng, uttr_token_length):
-        # all_tokens.append('[NONE]')
+#     all_tokens.extend(dia_token_list[2 * turn_number])
 
-    # leng = len(all_tokens)
-    # new_all_tokens = []
-    # for i in range(leng - uttr_token_length, leng):
-    #     new_all_tokens.append(all_tokens[i])
+#     all_tokens.append('[END]')
+#     leng = len(all_tokens)
 
-    return all_tokens
+#     # for i in range(leng, uttr_token_length):
+#         # all_tokens.append('[NONE]')
+
+#     # leng = len(all_tokens)
+#     # new_all_tokens = []
+#     # for i in range(leng - uttr_token_length, leng):
+#     #     new_all_tokens.append(all_tokens[i])
+
+#     return all_tokens
 
 def uttr_token2index(tokens, word_dict):
     tokindx = [[]]
@@ -126,14 +113,15 @@ def uttr_token2index(tokens, word_dict):
         if  a in word_dict:
             tokindx[0].append(word_dict[a])
         else:
-            tokindx[0].append(0)
-    
+            word_dict[a] = leng
+            tokindx[0].append(leng)
+
     return tokindx
 
 def slots_attr2index():
     slotsindex = []
     i = 0
-    for d_index, domin in enumerate(domin_list):
+    for d_index, domain in enumerate(domain_list):
         for slot in slots_list[d_index]:
             slotsindex.append(i)
             i+=1
@@ -144,22 +132,22 @@ def slots2gates(slots1, slots2):
     gates = []
     # print(slots1)
     # print(slots2)
-    for domin, domin_value in slots1.items():
-        for slot, slot_value in domin_value.items():
+    for domain, domain_value in slots1.items():
+        for slot, slot_value in domain_value.items():
             #none
-            if slots1[domin][slot] == slots2[domin][slot]:
+            if slots1[domain][slot] == slots2[domain][slot]:
                 gates.append('NONE')
             #update
-            elif slots2[domin][slot] not in special_slot_value['dontcare'] and \
-                slots2[domin][slot] not in special_slot_value['none']:
+            elif slots2[domain][slot] not in special_slot_value['dontcare'] and \
+                slots2[domain][slot] not in special_slot_value['none']:
                 gates.append('UPDATE')
             #dontcare
-            elif slots2[domin][slot] in special_slot_value['dontcare']:
+            elif slots2[domain][slot] in special_slot_value['dontcare']:
                 gates.append('DONTCARE')
             #delete
-            elif slots2[domin][slot] in special_slot_value['none'] and \
-                slots1[domin][slot] not in special_slot_value['dontcare'] and \
-                slots1[domin][slot] not in special_slot_value['none']:
+            elif slots2[domain][slot] in special_slot_value['none'] and \
+                slots1[domain][slot] not in special_slot_value['dontcare'] and \
+                slots1[domain][slot] not in special_slot_value['none']:
                 gates.append('DELETE')
             else:
                 gates.append('NONE')
@@ -174,19 +162,19 @@ def getes2index(gates_tokens):
 
 def get_initial_slots():
     initial_slots = OrderedDict()
-    for d_index, domin in enumerate(domin_list):
+    for d_index, domain in enumerate(domain_list):
         temp = OrderedDict()
         for slot in slots_list[d_index]:
             temp[slot] = ''
-        initial_slots[domin] = temp
+        initial_slots[domain] = temp
 
     return initial_slots
 
 def load_all_slot():
     result = []
-    for d_index, domin in enumerate(domin_list):
+    for d_index, domain in enumerate(domain_list):
         for slot in slots_list[d_index]:
-            result.append(domin + '-' +slot)
+            result.append(domain + '-' +slot)
     
     return result
 
@@ -199,10 +187,10 @@ def slot2state(gates, slots2):
         else:
             flag = False
             j=0
-            for domin in slots2:
-                for attr in slots2[domin]:
+            for domain in slots2:
+                for attr in slots2[domain]:
                     if j == i:
-                        state_list.append(slots2[domin][attr])
+                        state_list.append(slots2[domain][attr])
                         flag = True
                         break
                     j += 1
@@ -225,91 +213,68 @@ def state2index(state_tokens, value_list):
                 result.append(out_index)
     return result
 
-def get_feed_data(in_dias, 
-                    hist_turn_length, 
-                    uttr_token_length, 
-                    word_dict, 
-                    values_list, 
-                    kind='train'):
-    dias_data = []
+def get_feed_data(word_dict, data_kind='train', samples_num=300):
 
-    tokens_file = open(kind + '_tokens.txt', mode='w', encoding='utf-8')
-    index_file = open(kind + '_index.txt', mode='w', encoding='utf-8')
+    tokens_file = open(data_kind + '_tokens.txt', mode='w', encoding='utf-8')
+    index_file = open(data_kind + '_index.txt', mode='w', encoding='utf-8')
     token_str = ''
     index_str = ''
-    nununu=0
 
-    for dia_name, dia in in_dias.items():
-        dia_tokens = dialogs2tokens(dialogs=dia)
-        turns = int(len(dia_tokens)/2) 
-        slots1 = get_initial_slots()
-        dia_data = []
-        for i in range(turns):
-            # turn_data = []
-            turn_tokens = get_turn_tokens(turn_number=i,
-                                            hist_turn_length=hist_turn_length,
-                                            dia_token_list=dia_tokens,
-                                            uttr_token_length=uttr_token_length,
-                                            if_complete_turns=True)
-            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
-            
-            all_slot = load_all_slot()
-            slots_feed_data = slots_attr2index()
+    value_list = load_slot_value_list()
+    all_slot = load_all_slot()
 
-            slots2 = dia['turns_status'][i]
-            gates_tokens = slots2gates(slots1, slots2)
-            gates_feed_data = getes2index(gates_tokens)
-            slots1 = copy.deepcopy(slots2)
+    dias_data = []
+    in_dias = load_diag_data(data_kind=data_kind,samples_num=samples_num)
+    slots1 = get_initial_slots()
+    for turn_num, turn_dia in enumerate(in_dias):
+        turn_tokens = turn_dia['histr_context']
+        sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
-            
+        slots_feed_data = slots_attr2index()
 
-            state_tokens = slot2state(gates = gates_feed_data,
-                            slots2=slots2)
-            states_feed_data = state2index(state_tokens=state_tokens,
-                                            value_list=values_list)
-            ###############################################
-            # dia_sentence_data.append(sentences_feed_data)
-            # dia_gate_data.append(gates_feed_data)
-            # dia_state_data.append(states_feed_data)
+        slots2 = turn_dia['belief_state']
+        gates_tokens = slots2gates(slots1, slots2)
+        gates_feed_data = getes2index(gates_tokens)
+        slots1 = copy.deepcopy(slots2)
 
-            #save_data
-            #print sentence
-            # print(turn_tokens)
-            token_str += 'tokens:' + str(turn_tokens) + ' '
-            # print(sentences_feed_data)
-            index_str += 'tokens:' + str(sentences_feed_data) + ' '
+        state_tokens = slot2state(gates = gates_feed_data,
+                        slots2=slots2)
+        states_feed_data = state2index(state_tokens=state_tokens,
+                                        value_list=value_list)
 
-            # print slots
-            token_str += 'slot:' + str(all_slot) + ''
+        turn_domain = turn_dia['domain']
+        domin_feed_data = [domain_list.index(turn_domain)]
+        ###############################################
+        # token_str += str()
+        # print(turn_tokens)
+        token_str += 'tokens:' + str(turn_tokens) + ' '
+        # print(sentences_feed_data)
+        index_str += 'tokens:' + str(sentences_feed_data) + ' '
+        # print slots
+        token_str += 'slot:' + str(all_slot) + ''
+        # print slot index
+        index_str += 'slot:' + str(slots_feed_data) + ' '
+        #print gates
+        token_str += 'gate:' + str(gates_tokens) + ' '
+        # print gata index
+        index_str += 'gate:' + str(gates_feed_data) + ' '
+        #print domin
+        token_str += 'domin:' + str(turn_domain) + ' '
+        # print domin index
+        index_str += 'domin:' + str(domin_feed_data) + ' '
 
-            # print slot index
-            index_str += 'slot:' + str(slots_feed_data) + ' '
-            #print gates
-            token_str += 'gate:' + str(gates_tokens) + ' '
-
-            # print gata index
-            index_str += 'gate:' + str(gates_feed_data) + ' '
-
-            token_str += 'state:' + str(state_tokens) + '\n'
-
-            #print state index
-            index_str += 'state:' + str(states_feed_data) + '\n'
-
-            # [sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data]
-            # turn_data.append(slots_feed_data)
-            # turn_data.append(gates_feed_data)
-            # turn_data.append(states_feed_data)
-            # nununu+=1
-            # dia_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
-        
-            dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data])
-    # print('tetetetetete:--------------' + str(nununu))
+        token_str += 'state:' + str(state_tokens) + '\n'
+        #print state index
+        index_str += 'state:' + str(states_feed_data) + '\n'
+        ######################################################
+        dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data, domin_feed_data])
+    
     tokens_file.write(token_str)
     index_file.write(index_str)
     tokens_file.close()
     index_file.close()
-
-
+    print(data_kind + ' cases is %d'%(turn_num))
+ 
     return dias_data
 
 def save_predict(gates_predict, gates_label, kind = 'train'):
@@ -335,6 +300,11 @@ def save_predict(gates_predict, gates_label, kind = 'train'):
     index_file.write(index_str)
     token_file.close()
     index_file.close()
+
+# def save_input(input, kind='train'):
+#     outfile = open('input_' + kind, mode='w')
+#     outfile.write(str(input))
+#     outfile.close()
 
 def show_f1(gates_predict, gates_label):
     

@@ -6,7 +6,7 @@ import paddle.fluid as fluid
 from collections import OrderedDict
 import math
 
-from creative_data import *
+# from creative_data import *
 from myutils import *
 
 PASS_NUM = 5
@@ -34,7 +34,16 @@ SLOT_VALUE_NUM = len(values_list) + 3
 GATE_KIND = 4
 GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
 SLOT_GATE_HIDDEN_SIZE = 64
-save_model_name = 'first_model.mdl'
+# save_model_name = 'first_model.mdl'
+
+word_dict = pd.dataset.imdb.word_dict()
+train_dias_data = get_feed_data(word_dict=word_dict, data_kind='train', samples_num=300)
+test_dias_data = get_feed_data(word_dict=word_dict, data_kind='test', samples_num=30)
+
+# save_input(train_dias_data, kind='train')
+# save_input(test_dias_data, kind='test')
+print('load data and save data ok, begin to train')
+
 
 def utterance_encoder(sentences, dict_size):
 
@@ -131,12 +140,10 @@ def get_ok_slot_num(gates, gates_label, states, states_label):
             dtype='int64')
     ok_value = fluid.layers.cast(fluid.layers.equal(fluid.layers.argmax(states, axis=1), states_label), 
             dtype='int64')
-    ok_slot_num = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(ok_slot, ok_value))
-        
+    ok_slot_num = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(ok_slot, ok_value))  
     return ok_slot_num
 
 def get_slot_acc(gates, gates_label, states, states_label):
-    
     leng = len(gates)
     ok_num = 0
     arg_gate = np.argmax(gates, axis=1)
@@ -144,10 +151,7 @@ def get_slot_acc(gates, gates_label, states, states_label):
     for i in range(leng):
         if arg_gate[i] == gates_label[i] and arg_states[i] == states_label[i]:
             ok_num +=1
-    
     return ok_num/leng
-
-
 
 def mymodel(dict_size):
     sentences_index_holder = fluid.data(name='sentences_index_holder',
@@ -160,7 +164,6 @@ def mymodel(dict_size):
     slots_emb = fluid.embedding(input=slots_index_holder,
                                 size=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH]
                                 )
-
     encoder_result= utterance_encoder(sentences_index_holder, dict_size)
     states= state_generator(encoder_result, slots_emb)
     gates = slot_gate(encoder_result, slots_emb)
@@ -186,8 +189,6 @@ def single_turn_train_program(dict_size):
     
     return gates_predict, single_turn_cost, ok_slot_num, states_predict
 
-word_dict = pd.dataset.imdb.word_dict()
-
 gates_predict, single_turn_cost, ok_slot_num, state_predict = single_turn_train_program(len(word_dict))
 optimizer = optimizer_program()
 optimizer.minimize(single_turn_cost)
@@ -197,23 +198,6 @@ place = fluid.CPUPlace()
 exe = fluid.Executor(place)
 exe.run(fluid.default_startup_program())
 main_program = fluid.default_main_program()
-
-train_dias, test_dias = load_diag_data(train_samples_num=300, 
-                                        test_saples_num=20,
-                                        SNG=True)
-train_dias_data = get_feed_data(train_dias,
-                            hist_turn_length=HISTR_TURNS_LENGTH,
-                            uttr_token_length= UTTR_TOKEN_LENGTH,
-                            word_dict=word_dict,
-                            values_list=values_list,
-                            kind='train')
-test_dias_data = get_feed_data(test_dias,
-                        hist_turn_length=HISTR_TURNS_LENGTH,
-                        uttr_token_length= UTTR_TOKEN_LENGTH,
-                        word_dict=word_dict,
-                        values_list=values_list,
-                        kind='test')
-print('load data and save data ok, begin to train')
 
 def train_test(train_test_program, test_data):
     print('begin test!')
@@ -275,10 +259,10 @@ for epoch in range(PASS_NUM):
         gates_feed_data = np.array(dia_data[2])
         state_feed_data = np.array(dia_data[3])
         myfeed = {
-            'sentences_index_holder':np.array(dia_data[0]),
-            'slots_index_holder':np.array(dia_data[1]),
-            'gates_label':np.array(dia_data[2]),
-            'state_label':np.array(dia_data[3])
+            'sentences_index_holder':sentences_feed_data,
+            'slots_index_holder':slots_feed_data,
+            'gates_label':gates_feed_data,
+            'state_label':state_feed_data
         }
 
         gates_predict1, cost1, ok_slot_num1, state_predict1 = exe.run(main_program,
@@ -301,7 +285,7 @@ for epoch in range(PASS_NUM):
             # t_file.write('sqk:'+ str(sqk1.tolist()) + '\n')
             # t_file.close()
         # all_turns += turns 
-        if dia_num % 100 == 0 and dia_num != 0:
+        if dia_num % 100 == 0 and dia_num!=0:
             print('%d turn, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/dia_num,dia_acc/dia_num, all_slot_acc/dia_num))
             
             # show_f1(temp1, temp2)
