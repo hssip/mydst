@@ -175,7 +175,6 @@ def load_all_slot():
     for d_index, domain in enumerate(domain_list):
         for slot in slots_list[d_index]:
             result.append(domain + '-' +slot)
-    
     return result
 
 def slot2state(gates, slots2):
@@ -247,25 +246,25 @@ def get_feed_data(word_dict, data_kind='train', samples_num=300):
         ###############################################
         # token_str += str()
         # print(turn_tokens)
-        token_str += 'tokens:' + str(turn_tokens) + ' '
+        token_str += ' tokens:' + str(turn_tokens) + ' '
         # print(sentences_feed_data)
-        index_str += 'tokens:' + str(sentences_feed_data) + ' '
+        index_str += ' tokens:' + str(sentences_feed_data) + ' '
         # print slots
-        token_str += 'slot:' + str(all_slot) + ''
+        token_str += ' slot:' + str(all_slot) + ' '
         # print slot index
-        index_str += 'slot:' + str(slots_feed_data) + ' '
+        index_str += ' slot:' + str(slots_feed_data) + ' '
         #print gates
-        token_str += 'gate:' + str(gates_tokens) + ' '
+        token_str += ' gate:' + str(gates_tokens) + ' '
         # print gata index
-        index_str += 'gate:' + str(gates_feed_data) + ' '
+        index_str += ' gate:' + str(gates_feed_data) + ' '
         #print domin
-        token_str += 'domin:' + str(turn_domain) + ' '
+        token_str += ' domin:' + str(turn_domain) + ' '
         # print domin index
-        index_str += 'domin:' + str(domin_feed_data) + ' '
+        index_str += ' domin:' + str(domin_feed_data) + ' '
 
-        token_str += 'state:' + str(state_tokens) + '\n'
+        token_str += ' state:' + str(state_tokens) + '\n'
         #print state index
-        index_str += 'state:' + str(states_feed_data) + '\n'
+        index_str += ' state:' + str(states_feed_data) + '\n'
         ######################################################
         dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data, domin_feed_data])
     
