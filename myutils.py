@@ -48,63 +48,6 @@ def load_slot_value_list():
 
     return slot_value_list
 
-# def dialogs2tokens(dialogs):
-#     user_diag_list = dialogs['user_turns']
-#     sys_diag_list = dialogs['sys_turns']
-#     diag_tokens = []
-#     for user_diag, sys_diag in zip(user_diag_list, sys_diag_list):
-#         user_tokens = user_diag.strip('\n').split(' ')
-#         sys_tokens = sys_diag.strip('\n').split(' ')
-#         turn_tokens = []
-#         for token in user_tokens:
-#             turn_tokens.append(token)
-#         diag_tokens.append(turn_tokens)
-
-#         turn_tokens = []
-#         for token in sys_tokens:
-#             turn_tokens.append(token)
-#         diag_tokens.append(turn_tokens)
-
-#     return diag_tokens 
-
-# def get_turn_tokens(turn_number,
-#                 dia_token_list,
-#                 # uttr_token_length,
-#                 if_complete_turns = True):
-
-#     all_tokens = ['[START]']
-
-#     #assert legal
-#     if turn_number < 0:
-#         raise RuntimeError('turn_nunmber connot be negtive')
-#     elif len(dia_token_list) % 2 != 0:
-#         raise RuntimeError('dia_token_list length wrong')
-#     # if turn_number < hist_turn_length:
-#     for i in range(turn_number):
-#         all_tokens.extend(dia_token_list[2 * i])
-#         all_tokens.extend(dia_token_list[2 * i + 1])
-#         all_tokens.append('[STEP]')
-#     # else:
-#     #     for i in range(turn_number - hist_turn_length, turn_number):
-#     #         all_tokens.extend(dia_token_list[2 * i])
-#     #         all_tokens.extend(dia_token_list[2 * i + 1])
-#     #         all_tokens.append('[STEP]')
-
-#     all_tokens.extend(dia_token_list[2 * turn_number])
-
-#     all_tokens.append('[END]')
-#     leng = len(all_tokens)
-
-#     # for i in range(leng, uttr_token_length):
-#         # all_tokens.append('[NONE]')
-
-#     # leng = len(all_tokens)
-#     # new_all_tokens = []
-#     # for i in range(leng - uttr_token_length, leng):
-#     #     new_all_tokens.append(all_tokens[i])
-
-#     return all_tokens
-
 def uttr_token2index(tokens, word_dict):
     tokindx = [[]]
     leng = len(word_dict)

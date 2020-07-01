@@ -258,6 +258,7 @@ for epoch in range(PASS_NUM):
         slots_feed_data = np.array(dia_data[1])
         gates_feed_data = np.array(dia_data[2])
         state_feed_data = np.array(dia_data[3])
+        domin_feed_data = np.array(dia_data[4])
         myfeed = {
             'sentences_index_holder':sentences_feed_data,
             'slots_index_holder':slots_feed_data,

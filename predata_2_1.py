@@ -24,15 +24,11 @@ gate2index = {
     'DELETE':   3
 }
 
-special_slot_value={
-    'dontcare':['any', 'does not care', 'dont care'],
-    'none':['not men', 'not mentioned', 'fun', 'art', 'not', 
-            'not mendtioned', '']
-}
-
-def fix_general_label_error(labels, type, slots):
-    label_dict = dict([ (l[0], l[1]) for l in labels]) if type else dict([ (l["slots"][0][0], l["slots"][0][1]) for l in labels]) 
-
+def fix_general_label_error(labels):
+    ontology = json.load(open("data/multi-woz/MULTIWOZ2_2/ontology.json", 'r'))
+    ontology_domains = dict([(k, v) for k, v in ontology.items() if k.split("-")[0] in domin_list])
+    slots = [k.replace(" ","").lower() if ("book" not in k) else k.lower() for k in ontology_domains.keys()]
+    label_dict = dict([ (l["slots"][0][0], l["slots"][0][1]) for l in labels]) 
     GENERAL_TYPO = {
         # type
         "guesthouse":"guest house", "guesthouses":"guest house", "guest":"guest house", "mutiple sports":"multiple sports", 
@@ -103,6 +99,8 @@ def process_belief_state(belief_state):
         for slot in slots_list[domin_num]:
             slots[slot] = ''
         result[domin] = slots
+    
+    label_dict = fix_general_label_error(belief_state)
 
     if belief_state:
         for belief in belief_state:
@@ -111,9 +109,11 @@ def process_belief_state(belief_state):
             if 'book' in temp:
                 temp = temp.split(' ')[1]
             value = belief['slots'][0][1].lower()
-            # if value in 
-            
-            result[arr[0]][temp] = belief['slots'][0][1].lower()
+            # process value
+            value = label_dict[belief['slots'][0][0]]
+            result[arr[0]][temp] = value
+    
+    # result = fix_general_label_error(result)
 
     return result
 
