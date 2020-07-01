@@ -48,22 +48,21 @@ print('load data and save data ok, begin to train')
 def utterance_encoder(sentences, dict_size):
 
     emb = fluid.embedding(input=sentences,
-                            size=[dict_size, VOCAB_EMBEDDING_LENGTH],
-                            param_attr=fluid.ParamAttr(
-                                name='word_embs',
-                                initializer=fluid.initializer.Normal(0., VOCAB_EMBEDDING_LENGTH**-0.5)
-                            ))
+                        size=[dict_size, VOCAB_EMBEDDING_LENGTH],
+                        param_attr=fluid.ParamAttr(
+                        name='word_embs',
+                        initializer=fluid.initializer.Normal(0., VOCAB_EMBEDDING_LENGTH**-0.5)))
     cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
     encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
                                                 inputs=emb)
-    encode_out = fluid.layers.reshape(encode_out, shape=[-1, ENCODER_HIDDEN_SIZE])
-    encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='tanh')
+    # encode_out = fluid.layers.reshape(encode_out, shape=[-1, ENCODER_HIDDEN_SIZE])
+    # encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='tanh')
     
-    return encode_out
+    return encode_out, encode_last_h
 
 def state_generator(encoder_result, slots_embedding):
 
-    # encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
+    encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
 
     G_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, int(SLOT_VALUE_NUM/ATTENTION_HEAD_NUM)], 
                                                 dtype='float32', 
@@ -90,41 +89,60 @@ def state_generator(encoder_result, slots_embedding):
 
     return states
 
-def slot_gate(encoder_result, slots_embedding):
+def slot_gate(encoder_outs, encoder_last_h, slots_embedding):
+    # contex_list = []
+    # for i in range(ALL_SLOT_NUM):
+    #     slot_embedding = slots_embedding[i]
+    #     slot_embedding = fluid.layers.expand_as(fluid.layers.unsqueeze(slot_embedding, axes=[0]), encoder_result)
+    #     score_ = score_ = fluid.layers.elementwise_mul(slot_embedding, encoder_result)
+    #     score = fluid.layers.softmax(score_)
+    #     contex_vec = fluid.layers.unsqueeze(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(score, encoder_result), dim=0),
+    #                                         axes=[0])
+    #     contex_list.append(contex_vec)
+    # contex_ = fluid.layers.concat(contex_list,axis=0)
+    # gates = fluid.layers.fc(contex_, size=GATE_KIND, act='softmax')
+    slots_embedding = fluid.layers.reshape(x=slots_embedding, shape=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH])
+    # print ('encoder_outs: %s,  encoder_last_h: %s,  slots_embedding: %s' % (str(encoder_outs.shape), str(encoder_last_h.shape), str(slots_embedding.shape)))
+    slot_emb_cat = slots_embedding[0]
+    for i in range(1, ALL_SLOT_NUM):
+        # print (i)
+        # print ('slot_emb: %s' % str(slot_emb.shape))
+        slot_emb = slots_embedding[i]
+        slot_emb_cat = fluid.layers.concat(input=[slot_emb_cat, slot_emb], axis=0)
+    # print ('slot_emb_cat: %s' % str(slot_emb_cat.shape))
+    slot_emb_cat = fluid.layers.reshape(x=slot_emb_cat, shape=[-1, SLOT_EMBEDDING_LENGTH])    #(batch_size*|slots|, SLOT_EMBEDDING_LENGTH)
+    slot_emb_cat = fluid.layers.dropout(slot_emb_cat, dropout_prob=0.15)
 
-    # encoder_result = fluid.layers.reshape(encoder_result, shape=[-1, ENCODER_HIDDEN_SIZE])
-    # S_Q_1 = fluid.layers.create_parameter(shape=[SLOT_EMBEDDING_LENGTH, SLOT_GATE_HIDDEN_SIZE], 
-    #                                             dtype='float32', 
-    #                                             name='S_Q_1',
-    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
-    # S_K_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, SLOT_GATE_HIDDEN_SIZE], 
-    #                                             dtype='float32', 
-    #                                             name='S_K_1',
-    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))
-    # S_V_1 = fluid.layers.create_parameter(shape=[ENCODER_HIDDEN_SIZE, SLOT_GATE_HIDDEN_SIZE], 
-    #                                             dtype='float32', 
-    #                                             name='S_V_1',
-    #                                             attr=fluid.ParamAttr(initializer=fluid.initializer.Normal(0., 2.)))   
-    # q1 = fluid.layers.mul(slots_embedding, S_Q_1)
-    # k1 = fluid.layers.mul(encoder_result, S_K_1)
-    # v1 = fluid.layers.mul(encoder_result, S_V_1)
-    # qk = fluid.layers.mul(q1, fluid.layers.t(k1))# /math.sqrt(SLOT_VALUE_NUM)
-    # sqk = fluid.layers.softmax(qk)
-    # head1 = fluid.layers.mul(sqk, v1)
-    # gates = fluid.layers.fc(head1, size = GATE_KIND, act='softmax')
-    contex_list = []
-    for i in range(ALL_SLOT_NUM):
-        slot_embedding = slots_embedding[i]
-        slot_embedding = fluid.layers.expand_as(fluid.layers.unsqueeze(slot_embedding, axes=[0]), encoder_result)
-        score_ = score_ = fluid.layers.elementwise_mul(slot_embedding, encoder_result)
-        score = fluid.layers.softmax(score_)
-        contex_vec = fluid.layers.unsqueeze(fluid.layers.reduce_sum(fluid.layers.elementwise_mul(score, encoder_result), dim=0),
-                                            axes=[0])
-        contex_list.append(contex_vec)
-    contex_ = fluid.layers.concat(contex_list,axis=0)
-    gates = fluid.layers.fc(contex_, size=GATE_KIND, act='softmax')
+    dec_h = fluid.layers.expand(x=encoder_last_h, expand_times=[ALL_SLOT_NUM, 1])
+    cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
+    dec_outs, dec_last_h = cell(slot_emb_cat, dec_h)
+    dec_outs = fluid.layers.unsqueeze(dec_outs, axes=[1])
+    dec_outs = fluid.layers.expand(dec_outs, expand_times=[1, fluid.layers.shape(encoder_outs)[1], 1])
+    # print ('dec_outs: %s,  dec_last_h: %s' % (str(dec_outs.shape), str(dec_last_h.shape)))
 
-    return gates #, qk, sqk
+    enc_outs = fluid.layers.unsqueeze(encoder_outs, 1)
+    enc_outs = fluid.layers.expand(enc_outs, expand_times=[1, ALL_SLOT_NUM, 1, 1])
+    scores = fluid.layers.softmax(
+                fluid.layers.reduce_sum(
+                fluid.layers.elementwise_mul(enc_outs, dec_outs, axis=1),
+                dim=-1))
+    print ('scores: %s' % str(scores.shape))
+
+    context = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(enc_outs, scores, axis=0), dim=-2)
+    print ('context: %s' % str(context.shape))
+    
+    gate_probs = fluid.layers.fc(input=context, size=GATE_KIND, num_flatten_dims=2, act='softmax',
+        param_attr=fluid.ParamAttr(
+        learning_rate=0.0001,
+        trainable=True,
+        name="cls_out_w",
+        initializer=fluid.initializer.TruncatedNormal(scale=0.02)),
+        bias_attr=fluid.ParamAttr(
+        name="cls_out_b", initializer=fluid.initializer.Constant(0.)))
+    gate_probs = fluid.layers.reshape(x=gate_probs, shape=[ALL_SLOT_NUM, GATE_KIND]) 
+    
+
+    return gate_probs #, qk, sqk
 
 def optimizer_program():
     return fluid.optimizer.SGD(learning_rate=lr)
@@ -132,15 +150,16 @@ def optimizer_program():
 def get_single_turn_cost(gates, gates_label, state, state_label):
     loss1 = fluid.layers.reduce_max(fluid.layers.cross_entropy(gates, gates_label))
     loss2 = fluid.layers.reduce_max(fluid.layers.cross_entropy(state, state_label))
-    return loss1 + loss2
+    return loss1
 
 def get_ok_slot_num(gates, gates_label, states, states_label):
     ok_slot = fluid.layers.cast(
             fluid.layers.equal(fluid.layers.argmax(gates, axis=1), gates_label), 
             dtype='int64')
-    ok_value = fluid.layers.cast(fluid.layers.equal(fluid.layers.argmax(states, axis=1), states_label), 
-            dtype='int64')
-    ok_slot_num = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(ok_slot, ok_value))  
+    # ok_value = fluid.layers.cast(fluid.layers.equal(fluid.layers.argmax(states, axis=1), states_label), 
+            # dtype='int64')
+    # ok_slot_num = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(ok_slot, ok_value))  
+    ok_slot_num = fluid.layers.reduce_sum(ok_slot)
     return ok_slot_num
 
 def get_slot_acc(gates, gates_label, states, states_label):
@@ -149,7 +168,7 @@ def get_slot_acc(gates, gates_label, states, states_label):
     arg_gate = np.argmax(gates, axis=1)
     arg_states = np.argmax(states, axis=1)
     for i in range(leng):
-        if arg_gate[i] == gates_label[i] and arg_states[i] == states_label[i]:
+        if arg_gate[i] == gates_label[i]:# and arg_states[i] == states_label[i]:
             ok_num +=1
     return ok_num/leng
 
@@ -157,16 +176,16 @@ def mymodel(dict_size):
     sentences_index_holder = fluid.data(name='sentences_index_holder',
                                 shape=[1, None],
                                 dtype='int64')
-
     slots_index_holder = fluid.data(name='slots_index_holder',
                                     shape=[ALL_SLOT_NUM],
                                     dtype='int64')
     slots_emb = fluid.embedding(input=slots_index_holder,
                                 size=[ALL_SLOT_NUM, SLOT_EMBEDDING_LENGTH]
                                 )
-    encoder_result= utterance_encoder(sentences_index_holder, dict_size)
+    
+    encoder_result, encoder_last_h = utterance_encoder(sentences_index_holder, dict_size)
     states= state_generator(encoder_result, slots_emb)
-    gates = slot_gate(encoder_result, slots_emb)
+    gates = slot_gate(encoder_result, encoder_last_h, slots_emb)
 
     return gates, states
 

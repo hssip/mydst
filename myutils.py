@@ -73,12 +73,10 @@ def slots_attr2index():
 
 def slots2gates(slots1, slots2): 
     gates = []
-    # print(slots1)
-    # print(slots2)
     for domain, domain_value in slots1.items():
         for slot, slot_value in domain_value.items():
             #none
-            if slots1[domain][slot] == slots2[domain][slot]:
+            if slots1[domain][slot]== '' and slots2[domain][slot] == '':
                 gates.append('NONE')
             #update
             elif slots2[domain][slot] not in special_slot_value['dontcare'] and \

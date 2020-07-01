@@ -143,15 +143,19 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
             domin = log['domain']
             if domain not in domin_list:
                 continue
+            uttr_context = ''
             if log['transcript']:
                 histr_context +=  log['transcript'] + ' EOU_token '
+                uttr_context += log['transcript'] + ' EOU_token '
             if log['system_transcript']:
                 histr_context += log['system_transcript'] + ' EOS_token '
+                uttr_context += log['system_transcript'] + ' EOS_token '
             pair['histr_context'] = '[START_token] ' + histr_context + 'END_token'
             pair['domain'] = domain
             pair['belief_state'] = process_belief_state(log['belief_state'])
             pair['turn_id'] = log['turn_idx']
             pair['dialog_name'] = dialog_name
+            pair['uttr_context'] = uttr_context
             pairs.append(pair)
  
     return pairs
