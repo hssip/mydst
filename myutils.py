@@ -36,7 +36,7 @@ special_slot_value={
 def load_slot_value_list():
     slot_value_list = set()
     slot_value_list.add('')
-    with open('pub_dataset/MultiWOZ_1.0/ontology.json', 'r') as json_file:
+    with open('data/multi-woz/MULTIWOZ2_2/ontology.json', 'r') as json_file:
         data = json.load(json_file)
         for index, domain_slot in enumerate(data):
             for value in data[domain_slot]:

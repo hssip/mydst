@@ -131,17 +131,19 @@ def slot_gate(encoder_outs, encoder_last_h, slots_embedding):
     context = fluid.layers.reduce_sum(fluid.layers.elementwise_mul(enc_outs, scores, axis=0), dim=-2)
     print ('context: %s' % str(context.shape))
     
+    # gate_probs = fluid.layers.fc(input=context, size=GATE_KIND, act='softmax')
+    
     gate_probs = fluid.layers.fc(input=context, size=GATE_KIND, num_flatten_dims=2, act='softmax',
         param_attr=fluid.ParamAttr(
-        learning_rate=0.0001,
+        learning_rate=0.01,
         trainable=True,
         name="cls_out_w",
         initializer=fluid.initializer.TruncatedNormal(scale=0.02)),
         bias_attr=fluid.ParamAttr(
         name="cls_out_b", initializer=fluid.initializer.Constant(0.)))
-    gate_probs = fluid.layers.reshape(x=gate_probs, shape=[ALL_SLOT_NUM, GATE_KIND]) 
-    
-
+    print('gate_probs: %s' % str(gate_probs.shape))
+    gate_probs = fluid.layers.reshape(x=gate_probs, shape=[ALL_SLOT_NUM, GATE_KIND])
+    # gate_probs
     return gate_probs #, qk, sqk
 
 def optimizer_program():
@@ -306,7 +308,7 @@ for epoch in range(PASS_NUM):
             # t_file.close()
         # all_turns += turns 
         if dia_num % 100 == 0 and dia_num!=0:
-            print('%d turn, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/dia_num,dia_acc/dia_num, all_slot_acc/dia_num))
+            print('%d turn, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/dia_num, dia_acc/dia_num, all_slot_acc/dia_num))
             
             # show_f1(temp1, temp2)
     # print('etetetetet-----------' + str(all_turns))
