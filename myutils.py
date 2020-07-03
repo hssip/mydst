@@ -76,7 +76,7 @@ def slots2gates(slots1, slots2):
     for domain, domain_value in slots1.items():
         for slot, slot_value in domain_value.items():
             #none
-            if slots1[domain][slot]== '' and slots2[domain][slot] == '':
+            if slots1[domain][slot] in special_slot_value['none'] and slots2[domain][slot] in special_slot_value['none']:
                 gates.append('NONE')
             #update
             elif slots2[domain][slot] not in special_slot_value['dontcare'] and \
@@ -165,50 +165,53 @@ def get_feed_data(word_dict, data_kind='train', samples_num=300):
 
     dias_data = []
     in_dias = load_diag_data(data_kind=data_kind,samples_num=samples_num)
-    slots1 = get_initial_slots()
-    for turn_num, turn_dia in enumerate(in_dias):
-        turn_tokens = turn_dia['histr_context']
-        sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
+    turn_num = 0
+    for p in in_dias:
+        slots1 = get_initial_slots()
+        for turn_dia in p:
+            turn_num += 1
+            turn_tokens = turn_dia['histr_context']
+            sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
-        slots_feed_data = slots_attr2index()
+            slots_feed_data = slots_attr2index()
 
-        slots2 = turn_dia['belief_state']
-        gates_tokens = slots2gates(slots1, slots2)
-        gates_feed_data = getes2index(gates_tokens)
-        slots1 = copy.deepcopy(slots2)
+            slots2 = turn_dia['belief_state']
+            gates_tokens = slots2gates(slots1, slots2)
+            gates_feed_data = getes2index(gates_tokens)
+            slots1 = copy.deepcopy(slots2)
 
-        state_tokens = slot2state(gates = gates_feed_data,
-                        slots2=slots2)
-        states_feed_data = state2index(state_tokens=state_tokens,
-                                        value_list=value_list)
+            state_tokens = slot2state(gates = gates_feed_data,
+                            slots2=slots2)
+            states_feed_data = state2index(state_tokens=state_tokens,
+                                            value_list=value_list)
 
-        turn_domain = turn_dia['domain']
-        domin_feed_data = [domain_list.index(turn_domain)]
-        ###############################################
-        # token_str += str()
-        # print(turn_tokens)
-        token_str += ' tokens:' + str(turn_tokens) + ' '
-        # print(sentences_feed_data)
-        index_str += ' tokens:' + str(sentences_feed_data) + ' '
-        # print slots
-        token_str += ' slot:' + str(all_slot) + ' '
-        # print slot index
-        index_str += ' slot:' + str(slots_feed_data) + ' '
-        #print gates
-        token_str += ' gate:' + str(gates_tokens) + ' '
-        # print gata index
-        index_str += ' gate:' + str(gates_feed_data) + ' '
-        #print domin
-        token_str += ' domin:' + str(turn_domain) + ' '
-        # print domin index
-        index_str += ' domin:' + str(domin_feed_data) + ' '
+            turn_domain = turn_dia['domain']
+            domin_feed_data = [domain_list.index(turn_domain)]
+            ###############################################
+            # token_str += str()
+            # print(turn_tokens)
+            token_str += ' tokens:' + str(turn_tokens) + ' '
+            # print(sentences_feed_data)
+            index_str += ' tokens:' + str(sentences_feed_data) + ' '
+            # print slots
+            token_str += ' slot:' + str(all_slot) + ' '
+            # print slot index
+            index_str += ' slot:' + str(slots_feed_data) + ' '
+            #print gates
+            token_str += ' gate:' + str(gates_tokens) + ' '
+            # print gata index
+            index_str += ' gate:' + str(gates_feed_data) + ' '
+            #print domin
+            token_str += ' domin:' + str(turn_domain) + ' '
+            # print domin index
+            index_str += ' domin:' + str(domin_feed_data) + ' '
 
-        token_str += ' state:' + str(state_tokens) + '\n'
-        #print state index
-        index_str += ' state:' + str(states_feed_data) + '\n'
-        ######################################################
-        dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data, domin_feed_data])
-    
+            token_str += ' state:' + str(state_tokens) + '\n'
+            #print state index
+            index_str += ' state:' + str(states_feed_data) + '\n'
+            ######################################################
+            dias_data.append([sentences_feed_data, slots_feed_data, gates_feed_data, states_feed_data, domin_feed_data])
+    # np.random.shuffle(dias_data)
     tokens_file.write(token_str)
     index_file.write(index_str)
     tokens_file.close()
@@ -241,11 +244,7 @@ def save_predict(gates_predict, gates_label, kind = 'train'):
     token_file.close()
     index_file.close()
 
-# def save_input(input, kind='train'):
-#     outfile = open('input_' + kind, mode='w')
-#     outfile.write(str(input))
-#     outfile.close()
-
+# def save_dias_data(dias_data):
 def show_f1(gates_predict, gates_label):
     
     for i in range(4):

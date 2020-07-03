@@ -138,6 +138,7 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
             continue
         dialog_name = dia['dialogue_idx']
         histr_context = ''
+        temp = []
         for log_num, log in enumerate(dia["dialogue"]):
             pair = {}
             domin = log['domain']
@@ -156,7 +157,8 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
             pair['turn_id'] = log['turn_idx']
             pair['dialog_name'] = dialog_name
             pair['uttr_context'] = uttr_context
-            pairs.append(pair)
+            temp.append(pair)
+        pairs.append(temp)
  
     return pairs
 
