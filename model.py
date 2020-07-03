@@ -47,14 +47,23 @@ def utterance_encoder(sentences, dict_size):
                         name='word_embs_new',
                         initializer=fluid.initializer.Normal(0., VOCAB_EMBEDDING_LENGTH**-0.5)))
     cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
+    # cell = fluid.layers.LSTMCell(hidden_size=ENCODER_HIDDEN_SIZE)
+    r_cell = fluid.layers.GRUCell(hidden_size=ENCODER_HIDDEN_SIZE)
+
     encode_out, encode_last_h = fluid.layers.rnn(cell=cell,
                                                 inputs=emb)
+    r_encode_out, r_encode_last_h = fluid.layers.rnn(cell=r_cell,
+                                                    inputs=emb,
+                                                    is_reverse=True)
     # encode_out = fluid.layers.reshape(encode_out, shape=[-1, ENCODER_HIDDEN_SIZE])
     # encode_out = fluid.layers.fc(encode_out, size=ENCODER_HIDDEN_SIZE, act='tanh')
+    encode_out = encode_out + r_encode_out
+    encode_last_h = encode_last_h + r_encode_last_h
     
     return encode_out, encode_last_h
 
 def domain_gate(encode_out):
+    # encode_out1 = fluid.layers.reshape(x=encode_out, shape=[-1, ENCODER_HIDDEN_SIZE])
     socre = fluid.layers.reduce_mean(encode_out, dim=1)
     domain_value = fluid.layers.fc(socre, size=DOMAIN_KIND, act='softmax')
     # domain_value = fluid.layers.fc(encode_last_h, size=DOMAIN_KIND, act='softmax')
@@ -159,8 +168,8 @@ def get_ok_slot_num(gates, gates_label, states, states_label):
 
 def get_domain_acc(domain, domain_label):
     # domain = fluid.layers.unsqueeze()
-    domain_num = fluid.layers.reduce_sum(fluid.layers.cast(
-        fluid.layers.equal(fluid.layers.argmax(domain, axis=0), domain_label),
+    domain_num = fluid.layers.reduce_mean(fluid.layers.cast(
+        fluid.layers.equal(fluid.layers.argmax(domain, axis=1), domain_label),
         dtype='int64'))
     # print('domain_num shape is: %s'%(str(domain_num.shape)))
     # lenglen()
