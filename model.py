@@ -168,10 +168,13 @@ def get_ok_slot_num(gates, gates_label, states, states_label):
 
 def get_domain_acc(domain, domain_label):
     # domain = fluid.layers.unsqueeze()
+    domain_arg = fluid.layers.argmax(domain, axis=1)
+    # domain_label = fluid.layers.unsqueeze(domain_label,axes=[1])
+    # print('domain_arg shape is: %s'%(str(domain_arg.shape)))
     domain_num = fluid.layers.reduce_mean(fluid.layers.cast(
-        fluid.layers.equal(fluid.layers.argmax(domain, axis=1), domain_label),
+        fluid.layers.equal(domain_arg, domain_label),
         dtype='int64'))
-    # print('domain_num shape is: %s'%(str(domain_num.shape)))
+    
     # lenglen()
     # for i in range()
     # domain_arg = np.argmax(domain, axis=0)
@@ -269,8 +272,8 @@ def train_test(train_test_program, test_data):
     # all_slot_acc = 0.0
     # temp1 = []
     # temp2 = []
-    all_domain_num = 0
     # np.random.shuffle(test_data)
+    all_domain_num = 0
     for dia_num, dia_data in enumerate(test_data):
         # dia_cost = 0.0
         sentences_feed_data = np.array(dia_data[0])
@@ -352,10 +355,12 @@ for epoch in range(PASS_NUM):
         # t_file.write('sqk:'+ str(sqk1.tolist()) + '\n')
         # t_file.close()
         all_domain_num += domain_acc1
-        if dia_num % 50 == 0 and dia_num!=0:
+        if dia_num % 100 == 0 and dia_num!=0:
             # print('%d turn, avg_cost: %f, avg_joint_acc: %f, slot_acc: %f' %(dia_num, dia_cost/dia_num, dia_acc/dia_num, all_slot_acc/dia_num))  
             # show_f1(temp1, temp2)
-            print('%d turn, avg_cost: %f, domain_acc: %f' %(dia_num, dia_cost/dia_num, all_domain_num/dia_num))  
+            print('%d turn, avg_cost: %f, domain_acc: %f' %(dia_num, dia_cost/100, all_domain_num/100))  
+            all_domain_num=0
+            dia_cost = 0.0
         # if dia_num % 100 == 0 and dia_num != 0:
             # save_predict(temp1, temp2, kind='train')
     # print('epoch: %d, avg_cost: %f, avg_acc: %f, slot_acc: %f' %(epoch,dia_cost/dia_num,dia_acc/dia_num, all_slot_acc/dia_num))

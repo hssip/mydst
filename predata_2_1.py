@@ -137,21 +137,25 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
         if not flag:
             continue
         dialog_name = dia['dialogue_idx']
-        histr_context = ''
+        histr_context = []
         temp = []
         for log_num, log in enumerate(dia["dialogue"]):
             pair = {}
             domin = log['domain']
             if domain not in domin_list:
                 continue
-            uttr_context = ''
+            uttr_context = []
             if log['transcript']:
-                histr_context +=  log['transcript'] + ' EOU_token '
-                uttr_context += log['transcript'] + ' EOU_token '
+                a = log['transcript'].split(' ')
+                a.append('EOU_token')
+                histr_context.extend(a)
+                uttr_context.extend(a)
             if log['system_transcript']:
-                histr_context += log['system_transcript'] + ' EOS_token '
-                uttr_context += log['system_transcript'] + ' EOS_token '
-            pair['histr_context'] = '[START_token] ' + histr_context + 'END_token'
+                a = log['system_transcript'].split(' ')
+                a.append('EOU_token')
+                histr_context.extend(a)
+                uttr_context.extend(a)
+            pair['histr_context'] = histr_context
             pair['domain'] = domain
             pair['belief_state'] = process_belief_state(log['belief_state'])
             pair['turn_id'] = log['turn_idx']

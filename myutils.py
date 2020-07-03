@@ -50,15 +50,14 @@ def load_slot_value_list():
 
 def uttr_token2index(tokens, word_dict):
     tokindx = [[]]
-    leng = len(word_dict)
     for token in tokens:
+        leng = len(word_dict)
         a = bytes(token, encoding='utf8')
         if  a in word_dict:
             tokindx[0].append(word_dict[a])
         else:
             word_dict[a] = leng
             tokindx[0].append(leng)
-
     return tokindx
 
 def slots_attr2index():
@@ -171,6 +170,7 @@ def get_feed_data(word_dict, data_kind='train', samples_num=300):
         for turn_dia in p:
             turn_num += 1
             turn_tokens = turn_dia['histr_context']
+            # turn_tokens = turn_dia['uttr_context'].split(' ')
             sentences_feed_data = uttr_token2index(turn_tokens, word_dict)
 
             slots_feed_data = slots_attr2index()
