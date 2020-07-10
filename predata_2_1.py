@@ -15,13 +15,14 @@ slots_list = [['name','type', 'parking', 'pricerange', 'internet', 'day', 'stay'
                 ['people', 'leaveat', 'destination', 'day','arriveby', 'departure']
                 ]
 
-GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
+# GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE', 'DELETE']
+GATE_INDEX = ['UPDATE', 'DONTCARE', 'NONE']
 
 gate2index = {
     'UPDATE':   0,
     'DONTCARE': 1,
-    'NONE':     2,
-    'DELETE':   3
+    'NONE':     2
+    # 'DELETE':   3
 }
 
 def fix_general_label_error(labels):
@@ -105,6 +106,9 @@ def process_belief_state(belief_state):
     if belief_state:
         for belief in belief_state:
             arr = belief['slots'][0][0].lower().split('-')
+            if arr[0] not in domin_list:
+                # print(belief_state)
+                return []
             temp = arr[1]
             if 'book' in temp:
                 temp = temp.split(' ')[1]
@@ -117,7 +121,7 @@ def process_belief_state(belief_state):
 
     return result
 
-def load_diag_data(samples_num=300, data_kind = 'train'):
+def load_diag_data(data_kind = 'train'):
     path  = 'data/'
     file_name = path + data_kind +'_dials.json'
 
@@ -125,11 +129,7 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
     data_file = open(file_name, mode='r')
     data = json.load(data_file)
     pairs = []
-    i=0
     for dia in data:
-        i+=1
-        if i > samples_num:
-            break
         flag = True
         for domain in dia['domains']:
             if domain not in domin_list:
@@ -137,27 +137,32 @@ def load_diag_data(samples_num=300, data_kind = 'train'):
         if not flag:
             continue
         dialog_name = dia['dialogue_idx']
-        histr_context = []
+        histr_context = ''
         temp = []
         for log_num, log in enumerate(dia["dialogue"]):
             pair = {}
             domin = log['domain']
             if domain not in domin_list:
                 continue
-            uttr_context = []
-            if log['transcript']:
-                a = log['transcript'].split(' ')
-                a.append('EOU_token')
-                histr_context.extend(a)
-                uttr_context.extend(a)
+            uttr_context = ''
             if log['system_transcript']:
-                a = log['system_transcript'].split(' ')
-                a.append('EOU_token')
-                histr_context.extend(a)
-                uttr_context.extend(a)
+                a = log['system_transcript'] + ' ; '
+                # a.append('EOU_token')
+                histr_context += a
+                uttr_context += a
+            if log['transcript']:
+                a = log['transcript'] + ' ; '
+                # a.append('EOU_token')
+                histr_context += a
+                uttr_context += a
+            # print(histr_context)
             pair['histr_context'] = histr_context
             pair['domain'] = domain
-            pair['belief_state'] = process_belief_state(log['belief_state'])
+            a = process_belief_state(log['belief_state'])
+            if not a:
+                # print(dialog_name)
+                continue
+            pair['belief_state'] = a
             pair['turn_id'] = log['turn_idx']
             pair['dialog_name'] = dialog_name
             pair['uttr_context'] = uttr_context
