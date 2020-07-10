@@ -1,5 +1,7 @@
 *.json
-ignore_*.*
+ignore*
 /__pycache__/
 data/
 new/
+mydst_gate/
+new_*.*
